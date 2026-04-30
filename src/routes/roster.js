@@ -1,5 +1,5 @@
 import express from "express";
-import { createRoster } from "../controllers/rosterController.js";
+import { createRoster, getRoster } from "../controllers/rosterController.js";
 
 const router = express.Router();
 
