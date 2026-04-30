@@ -9,6 +9,8 @@ export const createRoster = async (req, res) => {
       INSERT INTO roster (
         local_game_id,
         local_player_id,
+        game_remote_id,
+        player_remote_id
         created_at
       )
       VALUES ($1,$2,$3)
@@ -19,6 +21,8 @@ export const createRoster = async (req, res) => {
       [
         roster.gameId,
         roster.playerId,
+        roster.gameRemoteId,
+        roster.playerRemoteId,
         roster.createdAt
       ]
     );
