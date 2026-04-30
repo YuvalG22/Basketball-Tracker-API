@@ -32,3 +32,26 @@ export const createRoster = async (req, res) => {
     res.status(500).json({ error: "Failed to create roster" });
   }
 };
+
+export const getRoster = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        r.id,
+        r.local_game_id,
+        r.local_player_id,
+        g.id AS game_remote_id,
+        p.id AS player_remote_id,
+        r.created_at
+      FROM roster r
+      JOIN games g ON g.local_id = r.local_game_id
+      JOIN players p ON p.local_id = r.local_player_id
+      ORDER BY r.created_at ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch roster" });
+  }
+};

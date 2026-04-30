@@ -65,3 +65,29 @@ export const updateGameScore = async (req, res) => {
     res.status(500).json({ error: "Failed to update game score" });
   }
 };
+
+export const getGames = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        id,
+        local_id,
+        opponent_name,
+        is_home_game,
+        round_number,
+        game_date_epoch,
+        created_at,
+        quarter_length_sec,
+        quarters_count,
+        team_score,
+        opponent_score
+      FROM games
+      ORDER BY created_at ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch games" });
+  }
+};
