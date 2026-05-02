@@ -13,9 +13,12 @@ export const createRoster = async (req, res) => {
         player_remote_id,
         created_at
       )
-      VALUES ($1,$2,$3)
+      VALUES ($1,$2,$3,$4,$5)
       ON CONFLICT (local_game_id, local_player_id)
-      DO UPDATE SET created_at = EXCLUDED.created_at
+      DO UPDATE SET 
+      game_remote_id = EXCLUDED.game_remote_id,
+      player_remote_id = EXCLUDED.player_remote_id,
+      created_at = EXCLUDED.created_at
       RETURNING id
       `,
       [
@@ -23,14 +26,13 @@ export const createRoster = async (req, res) => {
         roster.playerId,
         roster.gameRemoteId,
         roster.playerRemoteId,
-        roster.createdAt
-      ]
+        roster.createdAt ?? Date.now(),
+      ],
     );
 
     res.json({
-      remoteId: result.rows[0].id
+      remoteId: result.rows[0].id,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create roster" });
