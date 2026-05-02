@@ -10,7 +10,7 @@ export const createRoster = async (req, res) => {
         local_game_id,
         local_player_id,
         game_remote_id,
-        player_remote_id
+        player_remote_id,
         created_at
       )
       VALUES ($1,$2,$3)
