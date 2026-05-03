@@ -60,8 +60,8 @@ export const getEvents = async (req, res) => {
         e.local_id,
         e.game_id AS local_game_id,
         e.player_id AS local_player_id,
-        g.id AS game_remote_id,
-        p.id AS player_remote_id,
+        e.game_remote_id,
+        e.player_remote_id,
         e.type,
         e.period,
         e.clock_sec_remaining,
@@ -72,8 +72,7 @@ export const getEvents = async (req, res) => {
         e.shot_y,
         e.shot_distance
       FROM events e
-      JOIN games g ON g.local_id = e.game_id
-      LEFT JOIN players p ON p.local_id = e.player_id
+      WHERE e.is_deleted = false
       ORDER BY e.created_at ASC
     `);
 

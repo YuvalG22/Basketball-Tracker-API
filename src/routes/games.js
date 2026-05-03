@@ -6,5 +6,6 @@ const router = express.Router();
 router.post("/", createGame);
 router.patch("/score", updateGameScore);
 router.get("/", getGames);
+router.patch("/delete", deleteGame);
 
 export default router;

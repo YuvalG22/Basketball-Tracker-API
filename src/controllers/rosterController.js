@@ -46,12 +46,11 @@ export const getRoster = async (req, res) => {
         r.id,
         r.local_game_id,
         r.local_player_id,
-        g.id AS game_remote_id,
-        p.id AS player_remote_id,
+        r.game_remote_id,
+        r.player_remote_id,
         r.created_at
       FROM roster r
-      JOIN games g ON g.local_id = r.local_game_id
-      JOIN players p ON p.local_id = r.local_player_id
+      WHERE r.is_deleted = false
       ORDER BY r.created_at ASC
     `);
 

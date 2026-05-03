@@ -82,6 +82,7 @@ export const getGames = async (req, res) => {
         team_score,
         opponent_score
       FROM games
+      WHERE is_deleted = false
       ORDER BY created_at ASC
     `);
 
@@ -89,5 +90,43 @@ export const getGames = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch games" });
+  }
+};
+
+export const deleteGame = async (req, res) => {
+  try {
+    const { remoteId } = req.body;
+
+    await pool.query(
+      `
+      UPDATE games
+      SET is_deleted = true
+      WHERE id = $1
+      `,
+      [remoteId]
+    );
+
+    await pool.query(
+      `
+      UPDATE events
+      SET is_deleted = true
+      WHERE game_remote_id = $1
+      `,
+      [remoteId]
+    );
+
+    await pool.query(
+      `
+      UPDATE roster
+      SET is_deleted = true
+      WHERE game_remote_id = $1
+      `,
+      [remoteId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("deleteGame error:", err);
+    res.status(500).json({ error: err.message });
   }
 };
