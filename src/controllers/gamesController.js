@@ -95,7 +95,7 @@ export const getGames = async (req, res) => {
 
 export const deleteGame = async (req, res) => {
   try {
-    const { remoteId } = req.body;
+    const { remoteId } = req.params;
 
     await pool.query("DELETE FROM events WHERE game_remote_id = $1", [remoteId]);
     await pool.query("DELETE FROM roster WHERE game_remote_id = $1", [remoteId]);
