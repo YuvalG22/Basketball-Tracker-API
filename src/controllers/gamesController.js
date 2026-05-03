@@ -97,32 +97,9 @@ export const deleteGame = async (req, res) => {
   try {
     const { remoteId } = req.body;
 
-    await pool.query(
-      `
-      DELETE
-      FROM games
-      WHERE id = $1
-      `,
-      [remoteId]
-    );
-
-    await pool.query(
-      `
-      DELETE
-      FROM events
-      WHERE game_remote_id = $1
-      `,
-      [remoteId]
-    );
-
-    await pool.query(
-      `
-      DELETE
-      FROM roster
-      WHERE game_remote_id = $1
-      `,
-      [remoteId]
-    );
+    await pool.query("DELETE FROM events WHERE game_remote_id = $1", [remoteId]);
+    await pool.query("DELETE FROM roster WHERE game_remote_id = $1", [remoteId]);
+    await pool.query("DELETE FROM games WHERE id = $1", [remoteId]);
 
     res.json({ success: true });
   } catch (err) {
