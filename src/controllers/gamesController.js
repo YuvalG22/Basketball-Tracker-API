@@ -99,8 +99,8 @@ export const deleteGame = async (req, res) => {
 
     await pool.query(
       `
-      UPDATE games
-      SET is_deleted = true
+      DELETE
+      FROM games
       WHERE id = $1
       `,
       [remoteId]
@@ -108,8 +108,8 @@ export const deleteGame = async (req, res) => {
 
     await pool.query(
       `
-      UPDATE events
-      SET is_deleted = true
+      DELETE
+      FROM events
       WHERE game_remote_id = $1
       `,
       [remoteId]
@@ -117,8 +117,8 @@ export const deleteGame = async (req, res) => {
 
     await pool.query(
       `
-      UPDATE roster
-      SET is_deleted = true
+      DELETE
+      FROM roster
       WHERE game_remote_id = $1
       `,
       [remoteId]
