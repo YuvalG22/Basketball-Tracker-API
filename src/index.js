@@ -5,8 +5,6 @@ import eventsRoutes from "./routes/events.js";
 import gamesRoutes from "./routes/games.js";
 import playersRoutes from "./routes/players.js";
 import rosterRoutes from "./routes/roster.js";
-import path from "path";
-import { fileURLToPath } from "url";
 
 
 dotenv.config();
@@ -16,17 +14,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// app.get("/", (req, res) => {
-//   res.send("Basketball backend is running");
-// });
-
-app.use(express.static(__dirname));
-
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.send("Basketball backend is running");
 });
 
 app.use("/events", eventsRoutes);
