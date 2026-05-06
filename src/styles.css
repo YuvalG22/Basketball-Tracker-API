@@ -1,0 +1,46 @@
+:root {
+    --primary-color: #32323a;
+    --line-color: #70708b;
+}
+
+body {
+    background: #1f1f23;
+    color: white;
+    font-family: Poppins, Tahoma, sans-serif;
+}
+
+select {
+    appearance: base-select;
+    background-color: var(--primary-color);
+    border: 1px solid var(--line-color);
+}
+
+select::picker(select) {
+    appearance: base-select;
+    border-radius: .25em;
+    background-color: var(--primary-color);
+    color: white;
+    border: 1px solid var(--line-color);
+}
+
+select::picker-icon {
+    font-size: .8rem;
+    align-content: center;
+    transition: 150ms ease;
+}
+
+select:open::picker-icon {
+    rotate: -180deg;
+}
+
+select option {
+    padding: .25em;
+}
+
+select option:checked {
+    background-color: var(--line-color);
+}
+
+select option::checkmark {
+    color: greenyellow;
+}
