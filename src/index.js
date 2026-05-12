@@ -5,7 +5,7 @@ import eventsRoutes from "./routes/events.js";
 import gamesRoutes from "./routes/games.js";
 import playersRoutes from "./routes/players.js";
 import rosterRoutes from "./routes/roster.js";
-import statsRoutes from "./routes/stats";
+import statsRoutes from "./routes/stats.js";
 
 
 
