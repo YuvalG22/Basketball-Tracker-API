@@ -7,6 +7,6 @@ const {
 } = require("../controllers/statsController");
 
 router.get("/season", getSeasonStats);
-router.post("/season/refresh", refreshSeasonStats);
+router.post("/season/refresh", refreshSeasonStats); 
 
 export default router;

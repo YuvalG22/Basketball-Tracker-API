@@ -1,4 +1,4 @@
-const pool = require("../db");
+import pool from "../db.js";
 
 const getSeasonStats = async (req, res) => {
   try {
@@ -45,9 +45,4 @@ const refreshSeasonStats = async (req, res) => {
     console.error("Error refreshing season stats:", err);
     res.status(500).json({ error: "Failed to refresh season stats" });
   }
-};
-
-module.exports = {
-  getSeasonStats,
-  refreshSeasonStats
 };
