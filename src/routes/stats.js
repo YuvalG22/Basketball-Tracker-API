@@ -9,4 +9,4 @@ const {
 router.get("/season", getSeasonStats);
 router.post("/season/refresh", refreshSeasonStats);
 
-module.exports = router;
+export default router;
