@@ -5,6 +5,8 @@ import eventsRoutes from "./routes/events.js";
 import gamesRoutes from "./routes/games.js";
 import playersRoutes from "./routes/players.js";
 import rosterRoutes from "./routes/roster.js";
+import statsRoutes from "./routes/stats";
+
 
 
 dotenv.config();
@@ -22,6 +24,7 @@ app.use("/events", eventsRoutes);
 app.use("/games", gamesRoutes);
 app.use("/players", playersRoutes);
 app.use("/roster", rosterRoutes);
+app.use("/stats", statsRoutes);
 
 const PORT = process.env.PORT || 3000;
 
