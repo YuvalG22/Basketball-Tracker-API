@@ -1,10 +1,7 @@
-const express = require("express");
-const router = express.Router();
+import express from "express"
+import {getSeasonStats, refreshSeasonStats} from "../controllers/statsController.js";
 
-const {
-  getSeasonStats,
-  refreshSeasonStats
-} = require("../controllers/statsController");
+const router = express.Router();
 
 router.get("/season", getSeasonStats);
 router.post("/season/refresh", refreshSeasonStats); 
