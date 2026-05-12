@@ -1,6 +1,6 @@
 import pool from "../db.js";
 
-const getSeasonStats = async (req, res) => {
+export const getSeasonStats = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -34,7 +34,7 @@ const getSeasonStats = async (req, res) => {
   }
 };
 
-const refreshSeasonStats = async (req, res) => {
+export const refreshSeasonStats = async (req, res) => {
   try {
     await pool.query(`
       REFRESH MATERIALIZED VIEW CONCURRENTLY player_season_stats
