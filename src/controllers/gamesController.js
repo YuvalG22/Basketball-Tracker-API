@@ -31,14 +31,13 @@ export const createGame = async (req, res) => {
         game.quarterLengthSec,
         game.quartersCount,
         game.teamScore,
-        game.opponentScore
-      ]
+        game.opponentScore,
+      ],
     );
 
     res.json({
-      remoteId: result.rows[0].id
+      remoteId: result.rows[0].id,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create game" });
@@ -56,7 +55,7 @@ export const updateGameScore = async (req, res) => {
           opponent_score = $2
       WHERE id = $3
       `,
-      [teamScore, opponentScore, remoteId]
+      [teamScore, opponentScore, remoteId],
     );
 
     res.json({ success: true });
@@ -97,8 +96,12 @@ export const deleteGame = async (req, res) => {
   try {
     const { remoteId } = req.params;
 
-    await pool.query("DELETE FROM events WHERE game_remote_id = $1", [remoteId]);
-    await pool.query("DELETE FROM roster WHERE game_remote_id = $1", [remoteId]);
+    await pool.query("DELETE FROM events WHERE game_remote_id = $1", [
+      remoteId,
+    ]);
+    await pool.query("DELETE FROM roster WHERE game_remote_id = $1", [
+      remoteId,
+    ]);
     await pool.query("DELETE FROM games WHERE id = $1", [remoteId]);
 
     res.json({ success: true });
@@ -129,7 +132,7 @@ export const getGameStats = async (req, res) => {
       WHERE id = $1
         AND is_deleted = false
       `,
-      [gameId]
+      [gameId],
     );
 
     if (gameResult.rows.length === 0) {
@@ -137,7 +140,7 @@ export const getGameStats = async (req, res) => {
     }
 
     const playersResult = await pool.query(
-  `
+      `
   SELECT
     p.id AS player_id,
     p.name AS player_name,
@@ -190,8 +193,8 @@ export const getGameStats = async (req, res) => {
 
   ORDER BY p.number ASC
   `,
-  [gameId]
-);
+      [gameId],
+    );
 
     return res.json({
       game: gameResult.rows[0],
@@ -201,6 +204,36 @@ export const getGameStats = async (req, res) => {
     console.error("Error fetching game stats:", error);
     return res.status(500).json({
       message: "Failed to fetch game stats",
+    });
+  }
+};
+
+export const getHomeGame = async (req, res) => {
+  try {
+    const lastGameResult = await pool.query(`
+      SELECT
+        id,
+        opponent_name,
+        is_home_game,
+        round_number,
+        game_date_epoch,
+        team_score,
+        opponent_score
+      FROM games
+      WHERE is_deleted = false
+      ORDER BY game_date_epoch DESC
+      LIMIT 1
+    `);
+
+    return res.json({
+      type: "LAST_GAME",
+      game: lastGameResult.rows[0] ?? null,
+    });
+  } catch (error) {
+    console.error("Error fetching home game:", error);
+    return res.status(500).json({
+      message: "Failed to fetch home game",
+      error: error.message,
     });
   }
 };

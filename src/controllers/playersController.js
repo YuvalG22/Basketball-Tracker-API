@@ -43,7 +43,7 @@ export const getPlayers = async (req, res) => {
         number,
         created_at
       FROM players
-      ORDER BY number ASC
+      ORDER BY id ASC
     `);
 
     res.json(result.rows);
