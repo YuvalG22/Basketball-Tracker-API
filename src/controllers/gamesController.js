@@ -221,7 +221,8 @@ export const getGameStats = async (req, res) => {
     'FT_MADE',
     'OPP_TWO_MADE',
     'OPP_THREE_MADE',
-    'OPP_FT_MADE'
+    'OPP_FT_MADE',
+    'PERIOD_END'
   )
   ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
   `,
