@@ -15,18 +15,12 @@ export const createPlayer = async (req, res) => {
       VALUES ($1,$2,$3,$4)
       RETURNING id
       `,
-      [
-        player.localId ?? null,
-        player.name,
-        player.number,
-        player.createdAt
-      ]
+      [player.localId ?? null, player.name, player.number, player.createdAt],
     );
 
     res.json({
-      remoteId: result.rows[0].id
+      remoteId: result.rows[0].id,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create player" });
@@ -67,7 +61,7 @@ export const getPlayerStats = async (req, res) => {
       FROM players
       WHERE id = $1
       `,
-      [playerId]
+      [playerId],
     );
 
     if (playerResult.rows.length === 0) {
@@ -139,7 +133,23 @@ export const getPlayerStats = async (req, res) => {
 
       ORDER BY g.game_date_epoch DESC
       `,
-      [playerId]
+      [playerId],
+    );
+
+    const shotsResult = await pool.query(
+      `
+  SELECT
+    game_remote_id,
+    type,
+    shot_x,
+    shot_y
+  FROM events
+  WHERE player_remote_id = $1
+    AND type IN ('TWO_MADE', 'TWO_MISS', 'THREE_MADE', 'THREE_MISS')
+    AND shot_x IS NOT NULL
+    AND shot_y IS NOT NULL
+  `,
+      [playerId],
     );
 
     const games = gamesResult.rows;
@@ -163,23 +173,49 @@ export const getPlayerStats = async (req, res) => {
         steals: 0,
         blocks: 0,
         turnovers: 0,
-      }
+      },
     );
 
     const averages = {
-      ppg: totals.gamesPlayed ? +(totals.points / totals.gamesPlayed).toFixed(1) : 0,
-      rpg: totals.gamesPlayed ? +(totals.rebounds / totals.gamesPlayed).toFixed(1) : 0,
-      apg: totals.gamesPlayed ? +(totals.assists / totals.gamesPlayed).toFixed(1) : 0,
-      spg: totals.gamesPlayed ? +(totals.steals / totals.gamesPlayed).toFixed(1) : 0,
-      bpg: totals.gamesPlayed ? +(totals.blocks / totals.gamesPlayed).toFixed(1) : 0,
-      tpg: totals.gamesPlayed ? +(totals.turnovers / totals.gamesPlayed).toFixed(1) : 0,
+      ppg: totals.gamesPlayed
+        ? +(totals.points / totals.gamesPlayed).toFixed(1)
+        : 0,
+      rpg: totals.gamesPlayed
+        ? +(totals.rebounds / totals.gamesPlayed).toFixed(1)
+        : 0,
+      apg: totals.gamesPlayed
+        ? +(totals.assists / totals.gamesPlayed).toFixed(1)
+        : 0,
+      spg: totals.gamesPlayed
+        ? +(totals.steals / totals.gamesPlayed).toFixed(1)
+        : 0,
+      bpg: totals.gamesPlayed
+        ? +(totals.blocks / totals.gamesPlayed).toFixed(1)
+        : 0,
+      tpg: totals.gamesPlayed
+        ? +(totals.turnovers / totals.gamesPlayed).toFixed(1)
+        : 0,
     };
+
+    const shotsByGame = shotsResult.rows.reduce((acc, shot) => {
+      if (!acc[shot.game_remote_id]) {
+        acc[shot.game_remote_id] = [];
+      }
+
+      acc[shot.game_remote_id].push(shot);
+      return acc;
+    }, {});
+
+    const gamesWithShots = games.map((game) => ({
+      ...game,
+      shots: shotsByGame[game.game_id] ?? [],
+    }));
 
     return res.json({
       player: playerResult.rows[0],
       totals,
       averages,
-      games,
+      games: gamesWithShots,
     });
   } catch (error) {
     console.error("Error fetching player stats:", error);

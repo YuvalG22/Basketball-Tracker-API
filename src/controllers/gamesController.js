@@ -166,6 +166,7 @@ export const getGameStats = async (req, res) => {
     COALESCE(SUM(CASE WHEN e.type = 'STL' THEN 1 ELSE 0 END), 0) AS steals,
     COALESCE(SUM(CASE WHEN e.type = 'BLK' THEN 1 ELSE 0 END), 0) AS blocks,
     COALESCE(SUM(CASE WHEN e.type = 'TOV' THEN 1 ELSE 0 END), 0) AS turnovers,
+    COALESCE(SUM(CASE WHEN e.type = 'PF' THEN 1 ELSE 0 END), 0) AS fouls,
 
     COALESCE(SUM(CASE WHEN e.type = 'TWO_MADE' THEN 1 ELSE 0 END), 0) AS two_made,
     COALESCE(SUM(CASE WHEN e.type = 'TWO_MISS' THEN 1 ELSE 0 END), 0) AS two_miss,
@@ -233,6 +234,64 @@ export const getHomeGame = async (req, res) => {
     console.error("Error fetching home game:", error);
     return res.status(500).json({
       message: "Failed to fetch home game",
+      error: error.message,
+    });
+  }
+};
+
+export const updateGame = async (req, res) => {
+  try {
+    const { remoteId } = req.params;
+
+    const {
+      opponentName,
+      isHomeGame,
+      roundNumber,
+      gameDateEpoch,
+      createdAt,
+      quarterLengthSec,
+      quartersCount,
+      teamScore,
+      opponentScore,
+      status,
+    } = req.body;
+
+    await pool.query(
+      `
+      UPDATE games
+      SET
+        opponent_name = $1,
+        is_home_game = $2,
+        round_number = $3,
+        game_date_epoch = $4,
+        created_at = $5,
+        quarter_length_sec = $6,
+        quarters_count = $7,
+        team_score = $8,
+        opponent_score = $9,
+        status = $10
+      WHERE id = $11
+      `,
+      [
+        opponentName,
+        isHomeGame,
+        roundNumber,
+        gameDateEpoch,
+        createdAt,
+        quarterLengthSec,
+        quartersCount,
+        teamScore,
+        opponentScore,
+        status,
+        remoteId,
+      ],
+    );
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating game:", error);
+    return res.status(500).json({
+      message: "Failed to update game",
       error: error.message,
     });
   }
