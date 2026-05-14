@@ -16,9 +16,10 @@ export const createGame = async (req, res) => {
         quarter_length_sec,
         quarters_count,
         team_score,
-        opponent_score
+        opponent_score,
+        status
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       RETURNING id
       `,
       [
@@ -32,6 +33,7 @@ export const createGame = async (req, res) => {
         game.quartersCount,
         game.teamScore,
         game.opponentScore,
+        game.status ?? "FINISHED",
       ],
     );
 
@@ -197,9 +199,31 @@ export const getGameStats = async (req, res) => {
       [gameId],
     );
 
+    const eventsResult = await pool.query(
+      `
+  SELECT
+    e.id,
+    e.type,
+    e.period,
+    e.clock_sec_remaining,
+    e.team_score_at_event,
+    e.opponent_score_at_event,
+    e.created_at,
+    p.name AS player_name,
+    p.number AS player_number
+  FROM events e
+  LEFT JOIN players p
+    ON p.id = e.player_remote_id
+  WHERE e.game_remote_id = $1
+  ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
+  `,
+      [gameId],
+    );
+
     return res.json({
       game: gameResult.rows[0],
       players: playersResult.rows,
+      events: eventsResult.rows,
     });
   } catch (error) {
     console.error("Error fetching game stats:", error);
@@ -242,21 +266,9 @@ export const getHomeGame = async (req, res) => {
 export const updateGame = async (req, res) => {
   try {
     const { remoteId } = req.params;
+    const game = req.body;
 
-    const {
-      opponentName,
-      isHomeGame,
-      roundNumber,
-      gameDateEpoch,
-      createdAt,
-      quarterLengthSec,
-      quartersCount,
-      teamScore,
-      opponentScore,
-      status,
-    } = req.body;
-
-    await pool.query(
+    const result = await pool.query(
       `
       UPDATE games
       SET
@@ -271,28 +283,32 @@ export const updateGame = async (req, res) => {
         opponent_score = $9,
         status = $10
       WHERE id = $11
+      RETURNING id
       `,
       [
-        opponentName,
-        isHomeGame,
-        roundNumber,
-        gameDateEpoch,
-        createdAt,
-        quarterLengthSec,
-        quartersCount,
-        teamScore,
-        opponentScore,
-        status,
+        game.opponentName,
+        game.isHomeGame,
+        game.roundNumber,
+        game.gameDateEpoch,
+        game.createdAt,
+        game.quarterLengthSec,
+        game.quartersCount,
+        game.teamScore,
+        game.opponentScore,
+        game.status ?? "FINISHED",
         remoteId,
       ],
     );
 
-    return res.json({ success: true });
-  } catch (error) {
-    console.error("Error updating game:", error);
-    return res.status(500).json({
-      message: "Failed to update game",
-      error: error.message,
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+
+    res.json({
+      remoteId: result.rows[0].id,
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update game" });
   }
 };
