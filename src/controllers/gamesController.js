@@ -215,6 +215,14 @@ export const getGameStats = async (req, res) => {
   LEFT JOIN players p
     ON p.id = e.player_remote_id
   WHERE e.game_remote_id = $1
+  AND e.type IN (
+    'TWO_MADE',
+    'THREE_MADE',
+    'FT_MADE',
+    'OPP_TWO_MADE',
+    'OPP_THREE_MADE',
+    'OPP_FT_MADE'
+  )
   ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
   `,
       [gameId],
