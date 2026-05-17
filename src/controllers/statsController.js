@@ -2,6 +2,7 @@ import pool from "../db.js";
 
 export const getSeasonStats = async (req, res) => {
   try {
+    console.log("sdfsddf000");
     const result = await pool.query(`
       SELECT
         player_id,
@@ -37,7 +38,7 @@ export const getSeasonStats = async (req, res) => {
 export const refreshSeasonStats = async (req, res) => {
   try {
     await pool.query(`
-      REFRESH MATERIALIZED VIEW CONCURRENTLY player_season_stats
+      REFRESH MATERIALIZED VIEW player_season_stats
     `);
 
     res.json({ success: true });
