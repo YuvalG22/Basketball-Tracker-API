@@ -132,21 +132,65 @@ export const getGameStats = async (req, res) => {
 
     const gameResult = await pool.query(
       `
-      SELECT
-        id,
-        local_id,
-        opponent_name,
-        is_home_game,
-        round_number,
-        game_date_epoch,
-        team_score,
-        opponent_score,
-        quarter_length_sec,
-        quarters_count
-      FROM games
-      WHERE id = $1
-        AND is_deleted = false
-      `,
+  SELECT
+    g.id,
+    g.local_id,
+    g.opponent_name,
+    g.is_home_game,
+    g.round_number,
+    g.game_date_epoch,
+    g.team_score,
+    g.opponent_score,
+    g.quarter_length_sec,
+    g.quarters_count,
+    g.status,
+    g.current_period,
+    g.clock_sec_remaining,
+    g.is_clock_running,
+    g.last_clock_started_at,
+
+    COALESCE(SUM(
+      CASE
+        WHEN e.type = 'TWO_MADE' THEN 2
+        WHEN e.type = 'THREE_MADE' THEN 3
+        WHEN e.type = 'FT_MADE' THEN 1
+        ELSE 0
+      END
+    ), 0) AS live_team_score,
+
+    COALESCE(SUM(
+      CASE
+        WHEN e.type = 'OPP_TWO_MADE' THEN 2
+        WHEN e.type = 'OPP_THREE_MADE' THEN 3
+        WHEN e.type = 'OPP_FT_MADE' THEN 1
+        ELSE 0
+      END
+    ), 0) AS live_opponent_score
+
+  FROM games g
+  LEFT JOIN events e
+    ON e.game_remote_id = g.id
+
+  WHERE g.id = $1
+    AND g.is_deleted = false
+
+  GROUP BY
+    g.id,
+    g.local_id,
+    g.opponent_name,
+    g.is_home_game,
+    g.round_number,
+    g.game_date_epoch,
+    g.team_score,
+    g.opponent_score,
+    g.quarter_length_sec,
+    g.quarters_count,
+    g.status,
+    g.current_period,
+    g.clock_sec_remaining,
+    g.is_clock_running,
+    g.last_clock_started_at
+  `,
       [gameId],
     );
 
