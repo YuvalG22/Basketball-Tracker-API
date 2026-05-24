@@ -17,9 +17,13 @@ export const createGame = async (req, res) => {
         quarters_count,
         team_score,
         opponent_score,
-        status
+        status,
+        current_period,
+        clock_sec_remaining,
+        is_clock_running,
+        last_clock_started_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING id
       `,
       [
@@ -34,6 +38,10 @@ export const createGame = async (req, res) => {
         game.teamScore,
         game.opponentScore,
         game.status ?? "FINISHED",
+        game.currentPeriod,
+        game.clockSecRemaining,
+        game.isClockRunning,
+        game.lastClockStartedAt,
       ],
     );
 
@@ -81,7 +89,12 @@ export const getGames = async (req, res) => {
         quarter_length_sec,
         quarters_count,
         team_score,
-        opponent_score
+        opponent_score,
+        status,
+        current_period,
+        clock_sec_remaining,
+        is_clock_running,
+        last_clock_started_at
       FROM games
       WHERE is_deleted = false
       ORDER BY created_at ASC
@@ -253,7 +266,12 @@ export const getHomeGame = async (req, res) => {
         round_number,
         game_date_epoch,
         team_score,
-        opponent_score
+        opponent_score,
+        status,
+        current_period,
+        clock_sec_remaining,
+        is_clock_running,
+        last_clock_started_at
       FROM games
       WHERE is_deleted = false
       ORDER BY game_date_epoch DESC
@@ -281,19 +299,23 @@ export const updateGame = async (req, res) => {
     const result = await pool.query(
       `
       UPDATE games
-      SET
-        opponent_name = $1,
-        is_home_game = $2,
-        round_number = $3,
-        game_date_epoch = $4,
-        created_at = $5,
-        quarter_length_sec = $6,
-        quarters_count = $7,
-        team_score = $8,
-        opponent_score = $9,
-        status = $10
-      WHERE id = $11
-      RETURNING id
+SET
+  opponent_name = $1,
+  is_home_game = $2,
+  round_number = $3,
+  game_date_epoch = $4,
+  created_at = $5,
+  quarter_length_sec = $6,
+  quarters_count = $7,
+  team_score = $8,
+  opponent_score = $9,
+  status = $10,
+  current_period = $11,
+  clock_sec_remaining = $12,
+  is_clock_running = $13,
+  last_clock_started_at = $14
+WHERE id = $15
+RETURNING id
       `,
       [
         game.opponentName,
@@ -306,6 +328,10 @@ export const updateGame = async (req, res) => {
         game.teamScore,
         game.opponentScore,
         game.status ?? "FINISHED",
+        game.currentPeriod,
+        game.clockSecRemaining,
+        game.isClockRunning,
+        game.lastClockStartedAt,
         remoteId,
       ],
     );
