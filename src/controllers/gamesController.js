@@ -304,27 +304,69 @@ export const getHomeGame = async (req, res) => {
   try {
     const lastGameResult = await pool.query(`
       SELECT
-        id,
-        opponent_name,
-        is_home_game,
-        round_number,
-        game_date_epoch,
-        team_score,
-        opponent_score,
-        status,
-        current_period,
-        clock_sec_remaining,
-        is_clock_running,
-        last_clock_started_at
-      FROM games
-      WHERE is_deleted = false
-      ORDER BY game_date_epoch DESC
+        g.id,
+        g.opponent_name,
+        g.is_home_game,
+        g.round_number,
+        g.game_date_epoch,
+        g.team_score,
+        g.opponent_score,
+        g.status,
+        g.current_period,
+        g.clock_sec_remaining,
+        g.is_clock_running,
+        g.last_clock_started_at,
+
+        COALESCE(SUM(
+          CASE
+            WHEN e.type = 'TWO_MADE' THEN 2
+            WHEN e.type = 'THREE_MADE' THEN 3
+            WHEN e.type = 'FT_MADE' THEN 1
+            ELSE 0
+          END
+        ), 0) AS live_team_score,
+
+        COALESCE(SUM(
+          CASE
+            WHEN e.type = 'OPP_TWO_MADE' THEN 2
+            WHEN e.type = 'OPP_THREE_MADE' THEN 3
+            WHEN e.type = 'OPP_FT_MADE' THEN 1
+            ELSE 0
+          END
+        ), 0) AS live_opponent_score
+
+      FROM games g
+      LEFT JOIN events e
+        ON e.game_remote_id = g.id
+
+      WHERE g.is_deleted = false
+
+      GROUP BY
+        g.id,
+        g.opponent_name,
+        g.is_home_game,
+        g.round_number,
+        g.game_date_epoch,
+        g.team_score,
+        g.opponent_score,
+        g.status,
+        g.current_period,
+        g.clock_sec_remaining,
+        g.is_clock_running,
+        g.last_clock_started_at
+
+      ORDER BY
+        CASE WHEN g.status = 'LIVE' THEN 0 ELSE 1 END,
+        g.game_date_epoch DESC
+
       LIMIT 1
     `);
 
+    const game = lastGameResult.rows[0] ?? null;
+
     return res.json({
-      type: "LAST_GAME",
-      game: lastGameResult.rows[0] ?? null,
+      type: game?.status === "LIVE" ? "LIVE" : "LAST_GAME",
+      game,
     });
   } catch (error) {
     console.error("Error fetching home game:", error);
