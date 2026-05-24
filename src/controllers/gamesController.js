@@ -379,6 +379,7 @@ export const getHomeGame = async (req, res) => {
 
 export const updateGame = async (req, res) => {
   try {
+    console.log("updateGame body:", req.body);
     const { remoteId } = req.params;
     const game = req.body;
 
