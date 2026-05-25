@@ -266,6 +266,7 @@ export const getGameStats = async (req, res) => {
     e.team_score_at_event,
     e.opponent_score_at_event,
     e.created_at,
+    p.id AS player_id,
     p.name AS player_name,
     p.number AS player_number
   FROM events e
@@ -280,7 +281,9 @@ export const getGameStats = async (req, res) => {
     'OPP_THREE_MADE',
     'OPP_FT_MADE',
     'PERIOD_END',
-    'PERIOD_START'
+    'PERIOD_START',
+    'SUB_IN',
+    'SUB_OUT'
   )
   ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
   `,
