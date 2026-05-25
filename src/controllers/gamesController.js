@@ -280,7 +280,7 @@ export const getGameStats = async (req, res) => {
     'OPP_THREE_MADE',
     'OPP_FT_MADE',
     'PERIOD_END',
-    'PERIOD_START',
+    'PERIOD_START'
   )
   ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
   `,
