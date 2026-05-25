@@ -266,7 +266,6 @@ export const getGameStats = async (req, res) => {
     e.team_score_at_event,
     e.opponent_score_at_event,
     e.created_at,
-    p.id AS player_id,
     p.name AS player_name,
     p.number AS player_number
   FROM events e
@@ -282,9 +281,28 @@ export const getGameStats = async (req, res) => {
     'OPP_FT_MADE',
     'PERIOD_END',
     'PERIOD_START',
-    'SUB_IN',
-    'SUB_OUT'
   )
+  ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
+  `,
+      [gameId],
+    );
+
+    const lineupEventsResult = await pool.query(
+      `
+  SELECT
+    e.id,
+    e.type,
+    e.period,
+    e.clock_sec_remaining,
+    e.created_at,
+    p.id AS player_id,
+    p.name AS player_name,
+    p.number AS player_number
+  FROM events e
+  JOIN players p
+    ON p.id = e.player_remote_id
+  WHERE e.game_remote_id = $1
+    AND e.type IN ('SUB_IN', 'SUB_OUT')
   ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
   `,
       [gameId],
@@ -294,6 +312,7 @@ export const getGameStats = async (req, res) => {
       game: gameResult.rows[0],
       players: playersResult.rows,
       events: eventsResult.rows,
+      lineupEvents: lineupEventsResult.rows,
     });
   } catch (error) {
     console.error("Error fetching game stats:", error);
