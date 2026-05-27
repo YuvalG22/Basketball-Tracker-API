@@ -11,6 +11,9 @@ export const createGame = async (req, res) => {
         opponent_name,
         is_home_game,
         round_number,
+        game_type,
+        playoff_stage,
+        playoff_game_number,
         game_date_epoch,
         created_at,
         quarter_length_sec,
@@ -23,7 +26,7 @@ export const createGame = async (req, res) => {
         is_clock_running,
         last_clock_started_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       RETURNING id
       `,
       [
@@ -31,6 +34,9 @@ export const createGame = async (req, res) => {
         game.opponentName,
         game.isHomeGame,
         game.roundNumber,
+        game.gameType,
+        game.playoffStage,
+        game.playoffGameNumber,
         game.gameDateEpoch,
         game.createdAt,
         game.quarterLengthSec,
@@ -84,6 +90,9 @@ export const getGames = async (req, res) => {
         opponent_name,
         is_home_game,
         round_number,
+        game_type,
+        playoff_stage,
+        playoff_game_number,
         game_date_epoch,
         created_at,
         quarter_length_sec,
@@ -138,6 +147,9 @@ export const getGameStats = async (req, res) => {
     g.opponent_name,
     g.is_home_game,
     g.round_number,
+    g.game_type,
+    g.playoff_stage,
+    g.playoff_game_number,
     g.game_date_epoch,
     g.team_score,
     g.opponent_score,
@@ -180,6 +192,9 @@ export const getGameStats = async (req, res) => {
     g.opponent_name,
     g.is_home_game,
     g.round_number,
+    g.game_type,
+    g.playoff_stage,
+    g.playoff_game_number,
     g.game_date_epoch,
     g.team_score,
     g.opponent_score,
@@ -330,6 +345,9 @@ export const getHomeGame = async (req, res) => {
         g.opponent_name,
         g.is_home_game,
         g.round_number,
+        g.game_type,
+        g.playoff_stage,
+        g.playoff_game_number,
         g.game_date_epoch,
         g.team_score,
         g.opponent_score,
@@ -422,7 +440,10 @@ SET
   current_period = $11,
   clock_sec_remaining = $12,
   is_clock_running = $13,
-  last_clock_started_at = $14
+  last_clock_started_at = $14,
+  game_type = $15,
+  playoff_stage = $16,
+  playoff_game_number = $17
 WHERE id = $15
 RETURNING id
       `,
