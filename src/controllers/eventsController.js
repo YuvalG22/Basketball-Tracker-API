@@ -88,3 +88,16 @@ export const getEvents = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch events" });
   }
 };
+
+export const deleteEvent = async (req, res) => {
+  try {
+    const { remoteId } = req.params;
+
+    await pool.query(`DELETE FROM events WHERE id = $1`, [remoteId]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("deleteEvent error:", err);
+    res.status(500).json({ error: "Failed to delete event" });
+  }
+};
