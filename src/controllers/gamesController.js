@@ -345,7 +345,7 @@ export const getHomeGame = async (req, res) => {
         g.opponent_name,
         g.is_home_game,
         g.round_number,
-        g.isPlayoff,
+        g.is_playoff,
         g.playoff_stage,
         g.playoff_game_number,
         g.game_date_epoch,
