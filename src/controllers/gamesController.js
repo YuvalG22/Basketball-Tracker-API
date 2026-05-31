@@ -444,7 +444,7 @@ SET
   is_playoff = $15,
   playoff_stage = $16,
   playoff_game_number = $17
-WHERE id = $15
+WHERE id = $18
 RETURNING id
       `,
       [
