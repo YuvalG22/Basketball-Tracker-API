@@ -277,31 +277,38 @@ export const getGameStats = async (req, res) => {
     e.id,
     e.type,
     e.period,
-    e.assisted_by_player_remote_id
+    e.assisted_by_player_remote_id,
     e.clock_sec_remaining,
     e.team_score_at_event,
     e.opponent_score_at_event,
     e.created_at,
+
     p.name AS player_name,
-    p.assist_name AS assist_name,
     p.number AS player_number,
-    assist_player.name AS assist_player_name
+
+    assist_player.name AS assist_player_name,
+    assist_player.number AS assist_player_number
+
   FROM events e
+
   LEFT JOIN players p
     ON p.id = e.player_remote_id
+
   LEFT JOIN players assist_player
-    ON assist_player.id = e.assisted_by_remote_id
+    ON assist_player.id = e.assisted_by_player_remote_id
+
   WHERE e.game_remote_id = $1
-  AND e.type IN (
-    'TWO_MADE',
-    'THREE_MADE',
-    'FT_MADE',
-    'OPP_TWO_MADE',
-    'OPP_THREE_MADE',
-    'OPP_FT_MADE',
-    'PERIOD_END',
-    'PERIOD_START'
-  )
+    AND e.type IN (
+      'TWO_MADE',
+      'THREE_MADE',
+      'FT_MADE',
+      'OPP_TWO_MADE',
+      'OPP_THREE_MADE',
+      'OPP_FT_MADE',
+      'PERIOD_END',
+      'PERIOD_START'
+    )
+
   ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
   `,
       [gameId],
