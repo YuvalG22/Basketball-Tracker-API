@@ -1,44 +1,29 @@
 import pool from "../db.js";
-
-export const createPlayer = async (req, res) => {
-  try {
-    const player = req.body;
-
-    const result = await pool.query(
-      `
-      INSERT INTO players (
-        local_id,
-        name,
-        number,
-        created_at
-      )
-      VALUES ($1,$2,$3,$4)
-      RETURNING id
-      `,
-      [player.localId ?? null, player.name, player.number, player.createdAt],
-    );
-
-    res.json({
-      remoteId: result.rows[0].id,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create player" });
-  }
-};
-
+import {endpoint,createRecord,updateRecord,HttpError,validateRevision} from "../syncStore.js";
+function playerValues(p){
+ validateRevision(p);
+ if(typeof p.name!=="string"||!p.name.trim()||!Number.isInteger(p.number)||p.number<0)throw new HttpError(400,"Invalid player");
+ return {name:p.name,number:p.number};
+}
+export const createPlayer=endpoint((db,req)=>createRecord(db,"players",{...playerValues(req.body),local_id:req.body.localId??null,created_at:req.body.createdAt??Date.now()},req.body.syncKey??req.get("Idempotency-Key"),req.body.clientRevision??0));
+export const updatePlayer=endpoint((db,req)=>updateRecord(db,"players",req.params.remoteId,playerValues(req.body),req.body));
+export const deletePlayer=endpoint(async(db,req)=>{
+ await db.query("UPDATE players SET is_deleted=true,server_version=server_version+1 WHERE id=$1 AND NOT is_deleted",[req.params.remoteId]);
+ return {success:true};
+});
 export const getPlayers = async (req, res) => {
   try {
-    const result = await pool.query(`
+    const result = await (req.database || pool).query(`
       SELECT
         id,
         local_id,
         name,
         number,
-        created_at
+        created_at, sync_key, server_version, client_revision, is_deleted
       FROM players
+      WHERE ($1 OR NOT is_deleted)
       ORDER BY id ASC
-    `);
+    `, [req.query.includeDeleted === "true"]);
 
     res.json(result.rows);
   } catch (err) {
@@ -51,7 +36,7 @@ export const getPlayerStats = async (req, res) => {
   try {
     const { playerId } = req.params;
 
-    const playerResult = await pool.query(
+    const playerResult = await (req.database || pool).query(
       `
       SELECT
         id,
@@ -68,7 +53,7 @@ export const getPlayerStats = async (req, res) => {
       return res.status(404).json({ message: "Player not found" });
     }
 
-    const gamesResult = await pool.query(
+    const gamesResult = await (req.database || pool).query(
       `
       SELECT
         g.id AS game_id,
@@ -111,14 +96,14 @@ export const getPlayerStats = async (req, res) => {
         COALESCE(SUM(CASE WHEN e.type = 'FT_MADE' THEN 1 ELSE 0 END), 0) AS ft_made,
         COALESCE(SUM(CASE WHEN e.type = 'FT_MISS' THEN 1 ELSE 0 END), 0) AS ft_miss
 
-      FROM roster r
+      FROM (SELECT DISTINCT game_remote_id,player_remote_id FROM roster WHERE NOT is_deleted) r
 
       JOIN games g
         ON g.id = r.game_remote_id
 
       LEFT JOIN events e
         ON e.game_remote_id = r.game_remote_id
-       AND e.player_remote_id = r.player_remote_id
+       AND e.player_remote_id = r.player_remote_id AND e.is_deleted = false
 
       WHERE r.player_remote_id = $1
         AND g.is_deleted = false
@@ -136,7 +121,7 @@ export const getPlayerStats = async (req, res) => {
       [playerId],
     );
 
-    const shotsResult = await pool.query(
+    const shotsResult = await (req.database || pool).query(
       `
   SELECT
     game_remote_id,
@@ -145,7 +130,7 @@ export const getPlayerStats = async (req, res) => {
     shot_y
   FROM events
   WHERE player_remote_id = $1
-    AND type IN ('TWO_MADE', 'TWO_MISS', 'THREE_MADE', 'THREE_MISS')
+    AND is_deleted = false AND type IN ('TWO_MADE', 'TWO_MISS', 'THREE_MADE', 'THREE_MISS')
     AND shot_x IS NOT NULL
     AND shot_y IS NOT NULL
   `,

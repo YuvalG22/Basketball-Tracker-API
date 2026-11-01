@@ -1,32 +1,7 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import eventsRoutes from "./routes/events.js";
-import gamesRoutes from "./routes/games.js";
-import playersRoutes from "./routes/players.js";
-import rosterRoutes from "./routes/roster.js";
-import statsRoutes from "./routes/stats.js";
+import { createApp } from './app.js';
+import { transaction } from './syncStore.js';
+import { migrateSyncSchema } from './syncSchema.js';
 
-dotenv.config();
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.send("Basketball backend is running");
-});
-
-app.use("/events", eventsRoutes);
-app.use("/games", gamesRoutes);
-app.use("/players", playersRoutes);
-app.use("/roster", rosterRoutes);
-app.use("/stats", statsRoutes);
-app.use("/home", gamesRoutes);
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+await transaction(db => migrateSyncSchema(db));
+const port = process.env.PORT || 3000;
+createApp().listen(port, () => console.log("Server running on port " + port));

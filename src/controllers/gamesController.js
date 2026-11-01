@@ -1,92 +1,30 @@
 import pool from "../db.js";
-
-export const createGame = async (req, res) => {
-  try {
-    const game = req.body;
-
-    const result = await pool.query(
-      `
-      INSERT INTO games (
-        local_id,
-        opponent_name,
-        is_home_game,
-        round_number,
-        is_playoff,
-        playoff_stage,
-        playoff_game_number,
-        game_date_epoch,
-        created_at,
-        quarter_length_sec,
-        quarters_count,
-        team_score,
-        opponent_score,
-        status,
-        current_period,
-        clock_sec_remaining,
-        is_clock_running,
-        last_clock_started_at
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
-      RETURNING id
-      `,
-      [
-        game.localId ?? null,
-        game.opponentName,
-        game.isHomeGame,
-        game.roundNumber,
-        game.isPlayoff,
-        game.playoffStage,
-        game.playoffGameNumber,
-        game.gameDateEpoch,
-        game.createdAt,
-        game.quarterLengthSec,
-        game.quartersCount,
-        game.teamScore,
-        game.opponentScore,
-        game.status ?? "FINISHED",
-        game.currentPeriod,
-        game.clockSecRemaining,
-        game.isClockRunning,
-        game.lastClockStartedAt,
-      ],
-    );
-
-    res.json({
-      remoteId: result.rows[0].id,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create game" });
-  }
-};
-
-export const updateGameScore = async (req, res) => {
-  try {
-    const { remoteId, teamScore, opponentScore } = req.body;
-
-    await pool.query(
-      `
-      UPDATE games
-      SET team_score = $1,
-          opponent_score = $2
-      WHERE id = $3
-      `,
-      [teamScore, opponentScore, remoteId],
-    );
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update game score" });
-  }
-};
-
+import {endpoint,createRecord,updateRecord,preserveRecordedScore,HttpError,validateRevision} from "../syncStore.js";
+function values(g){
+ validateRevision(g);
+ if(typeof g.opponentName!=="string"||!g.opponentName.trim()||!["LIVE","FINISHED"].includes(g.status??"FINISHED")||!Number.isInteger(g.currentPeriod??1)||(g.currentPeriod??1)<1||!Number.isInteger(g.clockSecRemaining??600)||(g.clockSecRemaining??600)<0)throw new HttpError(400,"Invalid game");
+ return {opponent_name:g.opponentName,is_home_game:g.isHomeGame??false,round_number:g.roundNumber,
+ is_playoff:g.isPlayoff??false,playoff_stage:g.playoffStage??null,playoff_game_number:g.playoffGameNumber??null,
+ game_date_epoch:g.gameDateEpoch,created_at:g.createdAt,quarter_length_sec:g.quarterLengthSec??600,quarters_count:g.quartersCount??4,
+ team_score:g.teamScore??0,opponent_score:g.opponentScore??0,status:g.status??"FINISHED",current_period:g.currentPeriod??1,
+ clock_sec_remaining:g.clockSecRemaining??600,is_clock_running:g.isClockRunning??false,last_clock_started_at:g.lastClockStartedAt??null,
+ ...(g.season!=null?{season:g.season}:{})};
+}
+export const createGame=endpoint((db,req)=>createRecord(db,"games",{local_id:req.body.localId??null,...values(req.body)},req.body.syncKey??req.get("Idempotency-Key"),req.body.clientRevision??0));
+export const updateGame=endpoint(async(db,req)=>{
+ const result=await updateRecord(db,"games",req.params.remoteId,values(req.body),req.body);
+ await preserveRecordedScore(db,req.params.remoteId);return result;
+});
+export const updateGameScore=endpoint(async(db,req)=>{
+ const r=req.body;const result=await updateRecord(db,"games",r.remoteId,{team_score:r.teamScore,opponent_score:r.opponentScore},r);
+ await preserveRecordedScore(db,r.remoteId);return {...result,success:true};
+});
 export const getGames = async (req, res) => {
   try {
-    const result = await pool.query(`
+    const result = await (req.database || pool).query(`
       SELECT
         id,
-        local_id,
+        local_id, sync_key, server_version, client_revision, is_deleted, season,
         opponent_name,
         is_home_game,
         round_number,
@@ -105,9 +43,9 @@ export const getGames = async (req, res) => {
         is_clock_running,
         last_clock_started_at
       FROM games
-      WHERE is_deleted = false
+      WHERE ($1 OR is_deleted = false)
       ORDER BY created_at ASC
-    `);
+    `, [req.query.includeDeleted === "true"]);
 
     res.json(result.rows);
   } catch (err) {
@@ -116,30 +54,20 @@ export const getGames = async (req, res) => {
   }
 };
 
-export const deleteGame = async (req, res) => {
-  try {
-    const { remoteId } = req.params;
-
-    await pool.query("DELETE FROM events WHERE game_remote_id = $1", [
-      remoteId,
-    ]);
-    await pool.query("DELETE FROM roster WHERE game_remote_id = $1", [
-      remoteId,
-    ]);
-    await pool.query("DELETE FROM games WHERE id = $1", [remoteId]);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("deleteGame error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
+export const deleteGame=endpoint(async(db,req)=>{
+ const id=req.params.remoteId;
+ await db.query("SELECT id FROM games WHERE id=$1 FOR UPDATE",[id]);
+ await db.query("UPDATE games SET is_deleted=true,is_clock_running=false,server_version=server_version+1 WHERE id=$1 AND NOT is_deleted",[id]);
+ await db.query("UPDATE events SET is_deleted=true WHERE game_remote_id=$1",[id]);
+ await db.query("UPDATE roster SET is_deleted=true WHERE game_remote_id=$1",[id]);
+ return {success:true};
+});
 
 export const getGameStats = async (req, res) => {
   try {
     const { gameId } = req.params;
 
-    const gameResult = await pool.query(
+    const gameResult = await (req.database || pool).query(
       `
   SELECT
     g.id,
@@ -181,7 +109,7 @@ export const getGameStats = async (req, res) => {
 
   FROM games g
   LEFT JOIN events e
-    ON e.game_remote_id = g.id
+    ON e.game_remote_id = g.id AND e.is_deleted = false
 
   WHERE g.id = $1
     AND g.is_deleted = false
@@ -213,7 +141,7 @@ export const getGameStats = async (req, res) => {
       return res.status(404).json({ message: "Game not found" });
     }
 
-    const playersResult = await pool.query(
+    const playersResult = await (req.database || pool).query(
       `
   SELECT
     p.id AS player_id,
@@ -250,14 +178,14 @@ export const getGameStats = async (req, res) => {
     COALESCE(SUM(CASE WHEN e.type = 'FT_MADE' THEN 1 ELSE 0 END), 0) AS ft_made,
     COALESCE(SUM(CASE WHEN e.type = 'FT_MISS' THEN 1 ELSE 0 END), 0) AS ft_miss
 
-  FROM roster r
+  FROM (SELECT DISTINCT game_remote_id,player_remote_id FROM roster WHERE NOT is_deleted) r
 
   JOIN players p
     ON p.id = r.player_remote_id
 
   LEFT JOIN events e
     ON e.player_remote_id = r.player_remote_id
-   AND e.game_remote_id = r.game_remote_id
+   AND e.game_remote_id = r.game_remote_id AND e.is_deleted = false
 
   WHERE r.game_remote_id = $1
 
@@ -271,7 +199,7 @@ export const getGameStats = async (req, res) => {
       [gameId],
     );
 
-    const eventsResult = await pool.query(
+    const eventsResult = await (req.database || pool).query(
       `
   SELECT
     e.id,
@@ -297,7 +225,7 @@ export const getGameStats = async (req, res) => {
   LEFT JOIN players assist_player
     ON assist_player.id = e.assisted_by_player_remote_id
 
-  WHERE e.game_remote_id = $1
+  WHERE e.game_remote_id = $1 AND e.is_deleted = false
     AND e.type IN (
       'TWO_MADE',
       'THREE_MADE',
@@ -309,12 +237,12 @@ export const getGameStats = async (req, res) => {
       'PERIOD_START'
     )
 
-  ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
+  ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC, COALESCE(e.local_id,0) ASC, e.id ASC
   `,
       [gameId],
     );
 
-    const lineupEventsResult = await pool.query(
+    const lineupEventsResult = await (req.database || pool).query(
       `
   SELECT
     e.id,
@@ -328,9 +256,9 @@ export const getGameStats = async (req, res) => {
   FROM events e
   JOIN players p
     ON p.id = e.player_remote_id
-  WHERE e.game_remote_id = $1
+  WHERE e.game_remote_id = $1 AND e.is_deleted = false
     AND e.type IN ('SUB_IN', 'SUB_OUT')
-  ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC
+  ORDER BY e.period ASC, e.clock_sec_remaining DESC, e.created_at ASC, COALESCE(e.local_id,0) ASC, e.id ASC
   `,
       [gameId],
     );
@@ -351,7 +279,7 @@ export const getGameStats = async (req, res) => {
 
 export const getHomeGame = async (req, res) => {
   try {
-    const lastGameResult = await pool.query(`
+    const lastGameResult = await (req.database || pool).query(`
       SELECT
         g.id,
         g.opponent_name,
@@ -389,7 +317,7 @@ export const getHomeGame = async (req, res) => {
 
       FROM games g
       LEFT JOIN events e
-        ON e.game_remote_id = g.id
+        ON e.game_remote_id = g.id AND e.is_deleted = false
 
       WHERE g.is_deleted = false
 
@@ -426,70 +354,5 @@ export const getHomeGame = async (req, res) => {
       message: "Failed to fetch home game",
       error: error.message,
     });
-  }
-};
-
-export const updateGame = async (req, res) => {
-  try {
-    console.log("updateGame body:", req.body);
-    const { remoteId } = req.params;
-    const game = req.body;
-
-    const result = await pool.query(
-      `
-      UPDATE games
-SET
-  opponent_name = $1,
-  is_home_game = $2,
-  round_number = $3,
-  game_date_epoch = $4,
-  created_at = $5,
-  quarter_length_sec = $6,
-  quarters_count = $7,
-  team_score = $8,
-  opponent_score = $9,
-  status = $10,
-  current_period = $11,
-  clock_sec_remaining = $12,
-  is_clock_running = $13,
-  last_clock_started_at = $14,
-  is_playoff = $15,
-  playoff_stage = $16,
-  playoff_game_number = $17
-WHERE id = $18
-RETURNING id
-      `,
-      [
-        game.opponentName,
-        game.isHomeGame,
-        game.roundNumber,
-        game.gameDateEpoch,
-        game.createdAt,
-        game.quarterLengthSec,
-        game.quartersCount,
-        game.teamScore,
-        game.opponentScore,
-        game.status ?? "FINISHED",
-        game.currentPeriod,
-        game.clockSecRemaining,
-        game.isClockRunning,
-        game.lastClockStartedAt,
-        game.isPlayoff,
-        game.playoffStage,
-        game.playoffGameNumber,
-        remoteId,
-      ],
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Game not found" });
-    }
-
-    res.json({
-      remoteId: result.rows[0].id,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update game" });
   }
 };

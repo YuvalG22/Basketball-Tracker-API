@@ -1,49 +1,6 @@
 import pool from "../db.js";
-
-export const getSeasonStats = async (req, res) => {
-  try {
-    console.log("sdfsddf000");
-    const result = await pool.query(`
-      SELECT
-        player_id,
-        player_name,
-        player_number,
-        gp,
-        pts,
-        ast,
-        reb_total,
-        reb_def,
-        reb_off,
-        stl,
-        blk,
-        tov,
-        pf,
-        fgm,
-        fga,
-        threem,
-        threea,
-        ftm,
-        fta
-      FROM player_season_stats
-      ORDER BY pts DESC
-    `);
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching season stats:", err);
-    res.status(500).json({ error: "Failed to fetch season stats" });
-  }
+export const getSeasonStats=async(req,res,next)=>{
+ try{res.json((await(req.database||pool).query("SELECT p.id AS player_id,p.name AS player_name,p.number AS player_number,COUNT(DISTINCT e.game_remote_id)::int AS gp,COALESCE(SUM(CASE e.type WHEN 'FT_MADE' THEN 1 WHEN 'TWO_MADE' THEN 2 WHEN 'THREE_MADE' THEN 3 ELSE 0 END),0)::int AS pts,COALESCE(SUM(CASE WHEN e.type='AST' THEN 1 ELSE 0 END),0)::int AS ast,COALESCE(SUM(CASE WHEN e.type IN ('REB_DEF','REB_OFF') THEN 1 ELSE 0 END),0)::int AS reb_total,COALESCE(SUM(CASE WHEN e.type='REB_DEF' THEN 1 ELSE 0 END),0)::int AS reb_def,COALESCE(SUM(CASE WHEN e.type='REB_OFF' THEN 1 ELSE 0 END),0)::int AS reb_off,COALESCE(SUM(CASE WHEN e.type='STL' THEN 1 ELSE 0 END),0)::int AS stl,COALESCE(SUM(CASE WHEN e.type='BLK' THEN 1 ELSE 0 END),0)::int AS blk,COALESCE(SUM(CASE WHEN e.type='TOV' THEN 1 ELSE 0 END),0)::int AS tov,COALESCE(SUM(CASE WHEN e.type='PF' THEN 1 ELSE 0 END),0)::int AS pf,COALESCE(SUM(CASE WHEN e.type IN ('TWO_MADE','THREE_MADE') THEN 1 ELSE 0 END),0)::int AS fgm,COALESCE(SUM(CASE WHEN e.type IN ('TWO_MADE','TWO_MISS','THREE_MADE','THREE_MISS') THEN 1 ELSE 0 END),0)::int AS fga,COALESCE(SUM(CASE WHEN e.type IN ('THREE_MADE') THEN 1 ELSE 0 END),0)::int AS threem,COALESCE(SUM(CASE WHEN e.type IN ('THREE_MADE','THREE_MISS') THEN 1 ELSE 0 END),0)::int AS threea,COALESCE(SUM(CASE WHEN e.type IN ('FT_MADE') THEN 1 ELSE 0 END),0)::int AS ftm,COALESCE(SUM(CASE WHEN e.type IN ('FT_MADE','FT_MISS') THEN 1 ELSE 0 END),0)::int AS fta FROM players p LEFT JOIN (events e JOIN games g ON g.id=e.game_remote_id AND NOT g.is_deleted AND g.status='FINISHED' AND ($1::text IS NULL OR g.season=$1)) ON e.player_remote_id=p.id AND NOT e.is_deleted GROUP BY p.id,p.name,p.number ORDER BY pts DESC,p.id",[req.query.season??null])).rows);}catch(e){next(e);}
 };
-
-export const refreshSeasonStats = async (req, res) => {
-  try {
-    await pool.query(`
-      REFRESH MATERIALIZED VIEW player_season_stats
-    `);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Error refreshing season stats:", err);
-    res.status(500).json({ error: "Failed to refresh season stats" });
-  }
-};
+// Compatibility endpoint: statistics are now derived from current active rows.
+export const refreshSeasonStats=async(req,res)=>res.json({success:true});
