@@ -107,6 +107,7 @@ export const getPlayerStats = async (req, res) => {
 
       WHERE r.player_remote_id = $1
         AND g.is_deleted = false
+        AND g.status = 'FINISHED'
 
       GROUP BY
         g.id,
@@ -125,14 +126,16 @@ export const getPlayerStats = async (req, res) => {
       `
   SELECT
     game_remote_id,
-    type,
-    shot_x,
-    shot_y
-  FROM events
-  WHERE player_remote_id = $1
-    AND is_deleted = false AND type IN ('TWO_MADE', 'TWO_MISS', 'THREE_MADE', 'THREE_MISS')
-    AND shot_x IS NOT NULL
-    AND shot_y IS NOT NULL
+    e.type,
+    e.shot_x,
+    e.shot_y
+  FROM events e
+  JOIN games g ON g.id = e.game_remote_id
+  WHERE e.player_remote_id = $1
+    AND e.is_deleted = false AND e.type IN ('TWO_MADE', 'TWO_MISS', 'THREE_MADE', 'THREE_MISS')
+    AND g.is_deleted = false AND g.status = 'FINISHED'
+    AND e.shot_x IS NOT NULL
+    AND e.shot_y IS NOT NULL
   `,
       [playerId],
     );

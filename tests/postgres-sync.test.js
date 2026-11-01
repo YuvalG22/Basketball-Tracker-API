@@ -149,3 +149,55 @@ test('PostgreSQL: retries, lost responses, revisions, tombstones, joins and snap
     assert.ok(snapshot.events.filter(row=>row.game_remote_id===gr.remoteId).every(row=>row.is_deleted));
   });
 });
+
+
+test('historical Web REST reads exclude unfinished games while Android sync retains them', async () => {
+  const { createApp } = await import('../src/app.js');
+  const p = (await call(createPlayer, player())).body.remoteId;
+  const finished = (await call(createGame, {...game(), status:'FINISHED', gameDateEpoch:200})).body.remoteId;
+  const ongoing = (await call(createGame, {...game(), gameDateEpoch:300})).body.remoteId;
+  for (const id of [finished, ongoing]) {
+    assert.equal((await call(createRoster, {gameId:1,playerId:1,gameRemoteId:id,playerRemoteId:p})).status,200);
+  }
+  const types = ['TWO_MADE','THREE_MADE','FT_MADE','TWO_MISS','THREE_MISS','FT_MISS',
+    'REB_DEF','REB_OFF','AST','STL','BLK','TOV','PF','SUB_IN','SUB_OUT'];
+  const batch = types.map((type,index) => ({...event(finished,p),type,localId:index+1,
+    createdAt:1000+index, period:type==='THREE_MADE'?5:1,
+    clockSecRemaining:500-index, shotX:type.includes('MADE')?0.5:null,shotY:type.includes('MADE')?0.4:null}));
+  assert.equal((await call(createEvents,batch)).status,200);
+  assert.equal((await call(createEvent,event(ongoing,p))).status,200);
+  const server = createApp(database).listen(0,'127.0.0.1');
+  await new Promise(resolve => server.once('listening',resolve));
+  const base = 'http://127.0.0.1:'+server.address().port;
+  async function get(url) { const response=await fetch(base+url); assert.equal(response.status,200,url); return response.json(); }
+  try {
+    const home=await get('/games/home');
+    assert.equal(home.type,'LAST_GAME');assert.equal(home.game.id,finished);
+    assert.ok(!('live_team_score' in home.game));assert.ok(!('clock_sec_remaining' in home.game));
+    const history=await get('/games?status=FINISHED');
+    assert.ok(history.some(g=>g.id===finished));assert.ok(history.every(g=>g.status==='FINISHED'));
+    const androidGames=await get('/games?includeDeleted=true');
+    assert.ok(androidGames.some(g=>g.id===ongoing && g.status==='LIVE' && g.current_period===1 && g.clock_sec_remaining===600));
+    const detail=await get('/games/'+finished);
+    assert.equal(detail.game.id,finished);assert.equal(Number(detail.game.team_score),6);
+    assert.ok(!('live_team_score' in detail.game));
+    const box=detail.players.find(row=>row.player_id===p);
+    for(const [key,value] of Object.entries({points:6,rebounds:2,assists:1,steals:1,blocks:1,turnovers:1,fouls:1,two_made:1,two_miss:1,three_made:1,three_miss:1,ft_made:1,ft_miss:1})) assert.equal(Number(box[key]),value,key);
+    assert.ok(detail.events.some(e=>e.period===5));
+    assert.equal(detail.lineupEvents.length,2);
+    assert.equal((await fetch(base+'/games/'+ongoing)).status,404);
+    const profile=await get('/players/'+p);
+    assert.equal(profile.games.length,1);assert.equal(profile.games[0].game_id,finished);
+    assert.equal(profile.averages.ppg,6);assert.equal(profile.averages.rpg,2);
+    assert.equal(profile.games[0].shots.length,2);
+    assert.ok(profile.games[0].shots.every(s=>s.game_remote_id===finished));
+    assert.ok((await get('/players')).some(row=>row.id===p));
+    const season=(await get('/stats/season')).find(row=>row.player_id===p);
+    assert.equal(season.pts,6);assert.equal(season.gp,1);assert.equal(season.fgm,2);assert.equal(season.fga,4);
+    const snapshot=await get('/sync/snapshot');
+    assert.ok(snapshot.games.some(g=>g.id===ongoing && g.status==='LIVE'));
+    assert.ok(snapshot.events.some(e=>e.game_remote_id===ongoing));
+  } finally { await new Promise(resolve=>server.close(resolve)); }
+  await db.query('UPDATE games SET is_deleted=true WHERE id=ANY($1::uuid[])',[[finished,ongoing]]);
+  assert.deepEqual((await call(getHomeGame)).body,{type:'LAST_GAME',game:null});
+});

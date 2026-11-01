@@ -44,8 +44,9 @@ export const getGames = async (req, res) => {
         last_clock_started_at
       FROM games
       WHERE ($1 OR is_deleted = false)
+        AND ($2::text IS NULL OR status = $2)
       ORDER BY created_at ASC
-    `, [req.query.includeDeleted === "true"]);
+    `, [req.query.includeDeleted === "true", req.query.status === "FINISHED" ? "FINISHED" : null]);
 
     res.json(result.rows);
   } catch (err) {
@@ -83,56 +84,11 @@ export const getGameStats = async (req, res) => {
     g.opponent_score,
     g.quarter_length_sec,
     g.quarters_count,
-    g.status,
-    g.current_period,
-    g.clock_sec_remaining,
-    g.is_clock_running,
-    g.last_clock_started_at,
-
-    COALESCE(SUM(
-      CASE
-        WHEN e.type = 'TWO_MADE' THEN 2
-        WHEN e.type = 'THREE_MADE' THEN 3
-        WHEN e.type = 'FT_MADE' THEN 1
-        ELSE 0
-      END
-    ), 0) AS live_team_score,
-
-    COALESCE(SUM(
-      CASE
-        WHEN e.type = 'OPP_TWO_MADE' THEN 2
-        WHEN e.type = 'OPP_THREE_MADE' THEN 3
-        WHEN e.type = 'OPP_FT_MADE' THEN 1
-        ELSE 0
-      END
-    ), 0) AS live_opponent_score
-
+    g.status
   FROM games g
-  LEFT JOIN events e
-    ON e.game_remote_id = g.id AND e.is_deleted = false
-
   WHERE g.id = $1
     AND g.is_deleted = false
-
-  GROUP BY
-    g.id,
-    g.local_id,
-    g.opponent_name,
-    g.is_home_game,
-    g.round_number,
-    g.is_playoff,
-    g.playoff_stage,
-    g.playoff_game_number,
-    g.game_date_epoch,
-    g.team_score,
-    g.opponent_score,
-    g.quarter_length_sec,
-    g.quarters_count,
-    g.status,
-    g.current_period,
-    g.clock_sec_remaining,
-    g.is_clock_running,
-    g.last_clock_started_at
+    AND g.status = 'FINISHED'
   `,
       [gameId],
     );
@@ -279,80 +235,18 @@ export const getGameStats = async (req, res) => {
 
 export const getHomeGame = async (req, res) => {
   try {
-    const lastGameResult = await (req.database || pool).query(`
-      SELECT
-        g.id,
-        g.opponent_name,
-        g.is_home_game,
-        g.round_number,
-        g.is_playoff,
-        g.playoff_stage,
-        g.playoff_game_number,
-        g.game_date_epoch,
-        g.team_score,
-        g.opponent_score,
-        g.status,
-        g.current_period,
-        g.clock_sec_remaining,
-        g.is_clock_running,
-        g.last_clock_started_at,
-
-        COALESCE(SUM(
-          CASE
-            WHEN e.type = 'TWO_MADE' THEN 2
-            WHEN e.type = 'THREE_MADE' THEN 3
-            WHEN e.type = 'FT_MADE' THEN 1
-            ELSE 0
-          END
-        ), 0) AS live_team_score,
-
-        COALESCE(SUM(
-          CASE
-            WHEN e.type = 'OPP_TWO_MADE' THEN 2
-            WHEN e.type = 'OPP_THREE_MADE' THEN 3
-            WHEN e.type = 'OPP_FT_MADE' THEN 1
-            ELSE 0
-          END
-        ), 0) AS live_opponent_score
-
-      FROM games g
-      LEFT JOIN events e
-        ON e.game_remote_id = g.id AND e.is_deleted = false
-
-      WHERE g.is_deleted = false
-
-      GROUP BY
-        g.id,
-        g.opponent_name,
-        g.is_home_game,
-        g.round_number,
-        g.game_date_epoch,
-        g.team_score,
-        g.opponent_score,
-        g.status,
-        g.current_period,
-        g.clock_sec_remaining,
-        g.is_clock_running,
-        g.last_clock_started_at
-
-      ORDER BY
-        CASE WHEN g.status = 'LIVE' THEN 0 ELSE 1 END,
-        g.game_date_epoch DESC
-
+    const result = await (req.database || pool).query(`
+      SELECT id, opponent_name, is_home_game, round_number,
+        is_playoff, playoff_stage, playoff_game_number, game_date_epoch,
+        team_score, opponent_score, status
+      FROM games
+      WHERE is_deleted = false AND status = 'FINISHED'
+      ORDER BY game_date_epoch DESC, created_at DESC, id DESC
       LIMIT 1
     `);
-
-    const game = lastGameResult.rows[0] ?? null;
-
-    return res.json({
-      type: game?.status === "LIVE" ? "LIVE" : "LAST_GAME",
-      game,
-    });
+    return res.json({ type: "LAST_GAME", game: result.rows[0] ?? null });
   } catch (error) {
     console.error("Error fetching home game:", error);
-    return res.status(500).json({
-      message: "Failed to fetch home game",
-      error: error.message,
-    });
+    return res.status(500).json({ message: "Failed to fetch home game" });
   }
 };
