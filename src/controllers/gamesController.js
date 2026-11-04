@@ -159,6 +159,7 @@ export const getGameStats = async (req, res) => {
       `
   SELECT
     e.id,
+    e.local_id,
     e.type,
     e.period,
     e.assisted_by_player_remote_id,
@@ -202,6 +203,7 @@ export const getGameStats = async (req, res) => {
       `
   SELECT
     e.id,
+    e.local_id,
     e.type,
     e.period,
     e.clock_sec_remaining,

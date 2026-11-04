@@ -185,6 +185,9 @@ test('historical Web REST reads exclude unfinished games while Android sync reta
     for(const [key,value] of Object.entries({points:6,rebounds:2,assists:1,steals:1,blocks:1,turnovers:1,fouls:1,two_made:1,two_miss:1,three_made:1,three_miss:1,ft_made:1,ft_miss:1})) assert.equal(Number(box[key]),value,key);
     assert.ok(detail.events.some(e=>e.period===5));
     assert.equal(detail.lineupEvents.length,2);
+    assert.ok([...detail.events,...detail.lineupEvents].every(e=>Object.hasOwn(e,'local_id')));
+    const activeIds=(await db.query('SELECT id FROM events WHERE game_remote_id=$1 AND NOT is_deleted',[finished])).rows.map(e=>e.id);
+    assert.ok([...detail.events,...detail.lineupEvents].every(e=>activeIds.includes(e.id)));
     assert.equal((await fetch(base+'/games/'+ongoing)).status,404);
     const profile=await get('/players/'+p);
     assert.equal(profile.games.length,1);assert.equal(profile.games[0].game_id,finished);

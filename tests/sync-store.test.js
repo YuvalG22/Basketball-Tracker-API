@@ -1,6 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { transaction, endpoint, validateRevision } from '../src/syncStore.js';
+import { getGameStats } from '../src/controllers/gamesController.js';
+
+test('game details expose source ordering IDs for scoring and lineup events', async () => {
+  const queries=[];
+  const database={query:async sql=>{
+    queries.push(sql);
+    return {rows:sql.includes('FROM games g')?[{id:'game'}]:[]};
+  }};
+  let status=200,body;
+  await getGameStats({params:{gameId:'game'},database},{
+    status(value){status=value;return this;},json(value){body=value;}
+  });
+  assert.equal(status,200);
+  assert.deepEqual(body.events,[]);
+  assert.deepEqual(body.lineupEvents,[]);
+  const eventQueries=queries.filter(sql=>sql.includes('ORDER BY e.period'));
+  assert.equal(eventQueries.length,2);
+  for(const sql of eventQueries){
+    assert.match(sql,/SELECT\s+e\.id,\s+e\.local_id,/);
+    assert.match(sql,/e\.is_deleted = false/);
+    assert.match(sql,/e\.created_at ASC, COALESCE\(e\.local_id,0\) ASC, e\.id ASC/);
+  }
+});
 
 test('transaction rolls back a network/database failure and always releases the connection',async()=>{
   const calls=[];const database={connect:async()=>({query:async sql=>calls.push(sql),release:()=>calls.push('release')})};
