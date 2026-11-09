@@ -5,7 +5,7 @@
     "date": "2026-11-26",
     "roundNumber": 1,
     "isHomeGame": true,
-    "opponentName": "המרכז האקדמי לוינסקי וינגייט"
+    "opponentName": "Levinsky-Wingate Academic Center"
   },
   {
     "matchId": "98nCcB",
@@ -13,7 +13,7 @@
     "date": "2026-12-03",
     "roundNumber": 2,
     "isHomeGame": false,
-    "opponentName": "אוניברסיטת בר אילן"
+    "opponentName": "Bar-Ilan University"
   },
   {
     "matchId": "6cpCcF",
@@ -21,7 +21,7 @@
     "date": "2026-12-10",
     "roundNumber": 3,
     "isHomeGame": true,
-    "opponentName": "המסלול האקדמי המכללה למינהל"
+    "opponentName": "College of Management"
   },
   {
     "matchId": "15nCcJ",
@@ -29,7 +29,7 @@
     "date": "2026-12-17",
     "roundNumber": 4,
     "isHomeGame": false,
-    "opponentName": "המכללה האקדמית להנדסה עש סמי שמעון אשדוד"
+    "opponentName": "Sami Shamoon College of Engineering - Ashdod"
   },
   {
     "matchId": "06mCcP",
@@ -37,7 +37,7 @@
     "date": "2026-12-24",
     "roundNumber": 5,
     "isHomeGame": false,
-    "opponentName": "אגודת הסטודנטים אריאל"
+    "opponentName": "Ariel University"
   },
   {
     "matchId": "86fCcV",
@@ -45,7 +45,7 @@
     "date": "2027-02-25",
     "roundNumber": 6,
     "isHomeGame": true,
-    "opponentName": "שנקר"
+    "opponentName": "Shenkar"
   },
   {
     "matchId": "46jCc1",
@@ -53,7 +53,7 @@
     "date": "2027-03-04",
     "roundNumber": 7,
     "isHomeGame": false,
-    "opponentName": "אוניברסיטת רייכמן"
+    "opponentName": "Reichman University"
   },
   {
     "matchId": "bfiCc7",
@@ -61,7 +61,7 @@
     "date": "2027-03-11",
     "roundNumber": 8,
     "isHomeGame": true,
-    "opponentName": "אוניברסיטת תל-אביב"
+    "opponentName": "Tel Aviv University"
   },
   {
     "matchId": "30nDcc",
@@ -69,6 +69,6 @@
     "date": "2027-03-18",
     "roundNumber": 9,
     "isHomeGame": true,
-    "opponentName": "מכון טכנולוגי חולון"
+    "opponentName": "Holon Institute of Technology"
   }
 ]

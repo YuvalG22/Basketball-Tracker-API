@@ -35,6 +35,7 @@ export const getPlayers = async (req, res) => {
 export const getPlayerStats = async (req, res) => {
   try {
     const { playerId } = req.params;
+    const season = req.query?.season ?? null;
 
     const playerResult = await (req.database || pool).query(
       `
@@ -107,7 +108,7 @@ export const getPlayerStats = async (req, res) => {
 
       WHERE r.player_remote_id = $1
         AND g.is_deleted = false
-        AND g.status = 'FINISHED'
+        AND g.status = 'FINISHED' AND ($2::text IS NULL OR g.season = $2)
 
       GROUP BY
         g.id,
@@ -119,7 +120,7 @@ export const getPlayerStats = async (req, res) => {
 
       ORDER BY g.game_date_epoch DESC
       `,
-      [playerId],
+      [playerId, season],
     );
 
     const shotsResult = await (req.database || pool).query(
@@ -133,11 +134,11 @@ export const getPlayerStats = async (req, res) => {
   JOIN games g ON g.id = e.game_remote_id
   WHERE e.player_remote_id = $1
     AND e.is_deleted = false AND e.type IN ('TWO_MADE', 'TWO_MISS', 'THREE_MADE', 'THREE_MISS')
-    AND g.is_deleted = false AND g.status = 'FINISHED'
+    AND g.is_deleted = false AND g.status = 'FINISHED' AND ($2::text IS NULL OR g.season = $2)
     AND e.shot_x IS NOT NULL
     AND e.shot_y IS NOT NULL
   `,
-      [playerId],
+      [playerId, season],
     );
 
     const games = gamesResult.rows;
@@ -194,9 +195,49 @@ export const getPlayerStats = async (req, res) => {
       return acc;
     }, {});
 
+    const periodsResult = await (req.database || pool).query(`
+      SELECT e.game_remote_id, e.period,
+        COALESCE(SUM(CASE WHEN e.player_remote_id = $1 THEN
+          CASE e.type WHEN 'TWO_MADE' THEN 2 WHEN 'THREE_MADE' THEN 3 WHEN 'FT_MADE' THEN 1 ELSE 0 END
+          ELSE 0 END), 0) AS points,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('REB_DEF', 'REB_OFF')) AS rebounds,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('REB_DEF')) AS defensive_rebounds,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('REB_OFF')) AS offensive_rebounds,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('AST')) AS assists,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('STL')) AS steals,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('BLK')) AS blocks,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TOV')) AS turnovers,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('PF')) AS fouls,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TWO_MADE')) AS two_made,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TWO_MISS')) AS two_miss,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('THREE_MADE')) AS three_made,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('THREE_MISS')) AS three_miss,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('FT_MADE')) AS ft_made,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('FT_MISS')) AS ft_miss,
+        COALESCE(json_agg(json_build_object('type', e.type, 'shot_x', e.shot_x, 'shot_y', e.shot_y))
+          FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TWO_MADE','TWO_MISS','THREE_MADE','THREE_MISS')
+            AND e.shot_x IS NOT NULL AND e.shot_y IS NOT NULL), '[]'::json) AS shots
+      FROM events e
+      JOIN games g ON g.id = e.game_remote_id
+      JOIN (SELECT DISTINCT game_remote_id FROM roster WHERE player_remote_id = $1 AND NOT is_deleted) r
+        ON r.game_remote_id = g.id
+      WHERE NOT e.is_deleted AND NOT g.is_deleted AND g.status = 'FINISHED' AND ($2::text IS NULL OR g.season = $2) AND e.period > 0
+      GROUP BY e.game_remote_id, e.period
+      HAVING COUNT(*) FILTER (WHERE e.type IN ('TWO_MADE','TWO_MISS','THREE_MADE','THREE_MISS',
+        'FT_MADE','FT_MISS','REB_DEF','REB_OFF','AST','STL','BLK','TOV','PF')) > 0
+      ORDER BY e.game_remote_id, e.period
+    `, [playerId, season]);
+    const periodsByGame = new Map();
+    for (const period of periodsResult.rows) {
+      const id = String(period.game_remote_id);
+      if (!periodsByGame.has(id)) periodsByGame.set(id, []);
+      periodsByGame.get(id).push(period);
+    }
+
     const gamesWithShots = games.map((game) => ({
       ...game,
       shots: shotsByGame[game.game_id] ?? [],
+      periods: periodsByGame.get(String(game.game_id)) ?? [],
     }));
 
     return res.json({

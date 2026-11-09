@@ -11,6 +11,7 @@ test('26/27 schedule has nine dated rounds and correct home/away assignment', as
   for (const f of fixtures) {
     const row = fixtureValues(f, 100);
     assert.equal(row.status, 'SCHEDULED');
+    assert.doesNotMatch(row.opponent_name, /[\u0590-\u05ff]/);
     assert.equal(row.season, '26/27');
     assert.equal(new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jerusalem'}).format(row.game_date_epoch), f.date);
     assert.equal(row.is_clock_running, false);
