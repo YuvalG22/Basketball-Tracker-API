@@ -1,0 +1,74 @@
+[
+  {
+    "matchId": "abjCcx",
+    "season": "26/27",
+    "date": "2026-11-26",
+    "roundNumber": 1,
+    "isHomeGame": true,
+    "opponentName": "המרכז האקדמי לוינסקי וינגייט"
+  },
+  {
+    "matchId": "98nCcB",
+    "season": "26/27",
+    "date": "2026-12-03",
+    "roundNumber": 2,
+    "isHomeGame": false,
+    "opponentName": "אוניברסיטת בר אילן"
+  },
+  {
+    "matchId": "6cpCcF",
+    "season": "26/27",
+    "date": "2026-12-10",
+    "roundNumber": 3,
+    "isHomeGame": true,
+    "opponentName": "המסלול האקדמי המכללה למינהל"
+  },
+  {
+    "matchId": "15nCcJ",
+    "season": "26/27",
+    "date": "2026-12-17",
+    "roundNumber": 4,
+    "isHomeGame": false,
+    "opponentName": "המכללה האקדמית להנדסה עש סמי שמעון אשדוד"
+  },
+  {
+    "matchId": "06mCcP",
+    "season": "26/27",
+    "date": "2026-12-24",
+    "roundNumber": 5,
+    "isHomeGame": false,
+    "opponentName": "אגודת הסטודנטים אריאל"
+  },
+  {
+    "matchId": "86fCcV",
+    "season": "26/27",
+    "date": "2027-02-25",
+    "roundNumber": 6,
+    "isHomeGame": true,
+    "opponentName": "שנקר"
+  },
+  {
+    "matchId": "46jCc1",
+    "season": "26/27",
+    "date": "2027-03-04",
+    "roundNumber": 7,
+    "isHomeGame": false,
+    "opponentName": "אוניברסיטת רייכמן"
+  },
+  {
+    "matchId": "bfiCc7",
+    "season": "26/27",
+    "date": "2027-03-11",
+    "roundNumber": 8,
+    "isHomeGame": true,
+    "opponentName": "אוניברסיטת תל-אביב"
+  },
+  {
+    "matchId": "30nDcc",
+    "season": "26/27",
+    "date": "2027-03-18",
+    "roundNumber": 9,
+    "isHomeGame": true,
+    "opponentName": "מכון טכנולוגי חולון"
+  }
+]

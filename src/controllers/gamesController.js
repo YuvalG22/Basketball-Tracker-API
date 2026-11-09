@@ -2,7 +2,7 @@ import pool from "../db.js";
 import {endpoint,createRecord,updateRecord,preserveRecordedScore,HttpError,validateRevision} from "../syncStore.js";
 function values(g){
  validateRevision(g);
- if(typeof g.opponentName!=="string"||!g.opponentName.trim()||!["LIVE","FINISHED"].includes(g.status??"FINISHED")||!Number.isInteger(g.currentPeriod??1)||(g.currentPeriod??1)<1||!Number.isInteger(g.clockSecRemaining??600)||(g.clockSecRemaining??600)<0)throw new HttpError(400,"Invalid game");
+ if(typeof g.opponentName!=="string"||!g.opponentName.trim()||!["SCHEDULED","LIVE","FINISHED"].includes(g.status??"FINISHED")||!Number.isInteger(g.currentPeriod??1)||(g.currentPeriod??1)<1||!Number.isInteger(g.clockSecRemaining??600)||(g.clockSecRemaining??600)<0)throw new HttpError(400,"Invalid game");
  return {opponent_name:g.opponentName,is_home_game:g.isHomeGame??false,round_number:g.roundNumber,
  is_playoff:g.isPlayoff??false,playoff_stage:g.playoffStage??null,playoff_game_number:g.playoffGameNumber??null,
  game_date_epoch:g.gameDateEpoch,created_at:g.createdAt,quarter_length_sec:g.quarterLengthSec??600,quarters_count:g.quartersCount??4,

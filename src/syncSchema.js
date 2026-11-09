@@ -6,6 +6,17 @@ export async function migrateSyncSchema(db, {lock = true} = {}) {
     ALTER TABLE event_tombstones ADD COLUMN IF NOT EXISTS game_remote_id uuid;
     ALTER TABLE event_tombstones ADD COLUMN IF NOT EXISTS game_version bigint;
     ALTER TABLE games ADD COLUMN IF NOT EXISTS season text NOT NULL DEFAULT '25/26';
+    DO $$ DECLARE c record; BEGIN
+      FOR c IN SELECT pc.conname, pg_get_constraintdef(pc.oid) AS definition
+        FROM pg_constraint pc JOIN pg_attribute a ON a.attrelid=pc.conrelid AND a.attname='status'
+        WHERE pc.conrelid='games'::regclass AND pc.contype='c' AND pc.conkey=ARRAY[a.attnum]
+          AND position('SCHEDULED' in pg_get_constraintdef(pc.oid))=0
+      LOOP
+        EXECUTE format('ALTER TABLE games DROP CONSTRAINT %I', c.conname);
+        EXECUTE format('ALTER TABLE games ADD CONSTRAINT %I CHECK ((%s) OR status = ''SCHEDULED'')',
+          c.conname, substring(c.definition from 7));
+      END LOOP;
+    END $$;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS action_group_id text;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS game_version bigint;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS is_deleted boolean NOT NULL DEFAULT false;
