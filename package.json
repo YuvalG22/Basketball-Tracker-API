@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/sync-store.test.js tests/schedule.test.js",
+    "test": "node --test tests/sync-store.test.js tests/schedule.test.js tests/team-stats.test.js",
     "dev": "nodemon src/index.js",
     "test:postgres": "node --test tests/postgres-sync.test.js",
     "import:schedule": "node scripts/import-schedule.js"

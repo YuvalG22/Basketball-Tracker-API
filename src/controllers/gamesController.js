@@ -1,3 +1,4 @@
+import { buildTeamStats } from "../teamStats.js";
 import pool from "../db.js";
 import {endpoint,createRecord,updateRecord,preserveRecordedScore,HttpError,validateRevision} from "../syncStore.js";
 function values(g){
@@ -41,7 +42,8 @@ export const getGames = async (req, res) => {
         current_period,
         clock_sec_remaining,
         is_clock_running,
-        last_clock_started_at
+        last_clock_started_at,
+        EXISTS (SELECT 1 FROM events availability WHERE availability.game_remote_id = games.id AND NOT availability.is_deleted) AS has_events
       FROM games
       WHERE ($1 OR is_deleted = false)
         AND ($2::text IS NULL OR status = $2)
@@ -84,7 +86,8 @@ export const getGameStats = async (req, res) => {
     g.opponent_score,
     g.quarter_length_sec,
     g.quarters_count,
-    g.status
+    g.status,
+    EXISTS (SELECT 1 FROM events availability WHERE availability.game_remote_id = g.id AND NOT availability.is_deleted) AS has_events
   FROM games g
   WHERE g.id = $1
     AND g.is_deleted = false
@@ -221,7 +224,10 @@ export const getGameStats = async (req, res) => {
       [gameId],
     );
 
+    const totals = await (req.database || pool).query(
+      `SELECT type, COUNT(*)::int AS count FROM events WHERE game_remote_id = $1 AND NOT is_deleted GROUP BY type`, [gameId]);
     return res.json({
+      teamStats: buildTeamStats(gameResult.rows[0], totals.rows),
       game: gameResult.rows[0],
       players: playersResult.rows,
       events: eventsResult.rows,
@@ -240,7 +246,8 @@ export const getHomeGame = async (req, res) => {
     const result = await (req.database || pool).query(`
       SELECT id, opponent_name, is_home_game, round_number,
         is_playoff, playoff_stage, playoff_game_number, game_date_epoch,
-        team_score, opponent_score, status
+        team_score, opponent_score, status,
+        EXISTS (SELECT 1 FROM events availability WHERE availability.game_remote_id = games.id AND NOT availability.is_deleted) AS has_events
       FROM games
       WHERE is_deleted = false AND status = 'FINISHED'
       ORDER BY game_date_epoch DESC, created_at DESC, id DESC

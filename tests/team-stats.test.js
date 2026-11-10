@@ -1,0 +1,40 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildTeamStats } from "../src/teamStats.js";
+import { getGames, getGameStats, getHomeGame } from "../src/controllers/gamesController.js";
+const counts = obj => Object.entries(obj).map(([type, count]) => ({type, count:String(count)}));
+test("team totals retain zeros, final points, and per-category opponent coverage", () => {
+  const stats = buildTeamStats({team_score:60,opponent_score:55}, counts({TWO_MADE:2,TWO_MISS:1,REB_OFF:2,REB_DEF:3,AST:1,OPP_TWO_MADE:3,OPP_THREE_MADE:1,OPP_TWO_MISS:2,OPP_PF:1}));
+  assert.equal(stats.afeka.points,60); assert.equal(stats.afeka.rebounds,5); assert.equal(stats.afeka.blocks,0);
+  assert.deepEqual(stats.afeka.ft,{made:0,attempts:0,percentage:null});
+  assert.deepEqual(stats.opponent.two,{made:3,attempts:5,percentage:60});
+  assert.deepEqual(stats.opponent.three,{made:1,attempts:null,percentage:null});
+  assert.deepEqual(stats.opponent.fg,{made:4,attempts:null,percentage:null});
+  assert.equal(stats.opponent.rebounds,null); assert.equal(stats.opponent.fouls,1);
+  const full = buildTeamStats({}, counts({OPP_TWO_MADE:3,OPP_TWO_MISS:2,OPP_THREE_MADE:1,OPP_THREE_MISS:1,OPP_FT_MADE:1,OPP_FT_MISS:1}));
+  assert.deepEqual(full.opponent.fg,{made:4,attempts:7,percentage:4/7*100});
+  assert.equal(full.opponent.ft.percentage,50);
+  const missesOnly = buildTeamStats({},counts({OPP_TWO_MISS:3}));
+  assert.equal(missesOnly.opponent.two.attempts,null);
+  const missing = buildTeamStats({},[]);
+  assert.equal(missing.opponent.two.made,null); assert.equal(missing.opponent.fouls,null);
+});
+test("game endpoints expose existence of non-deleted events and aggregate all event types independently of PBP", async () => {
+  const queries=[];
+  const database={async query(sql) {
+    queries.push(sql);
+    if(sql.includes("GROUP BY type")) return {rows:counts({TWO_MADE:1,TWO_MISS:2,OPP_TWO_MISS:3})};
+    if(sql.includes("FROM games")) return {rows:[{id:"g",status:"FINISHED",has_events:false}]};
+    return {rows:[]};
+  }};
+  let body;
+  const response={json(value){body=value;},status(){return this;}};
+  await getGameStats({database,params:{gameId:"g"}},response);
+  assert.equal(body.game.has_events,false); assert.equal(body.teamStats.afeka.two.attempts,3);
+  await getGames({database,query:{}},response);
+  await getHomeGame({database},response);
+  const gameQueries=queries.filter(sql=>sql.includes("FROM games"));
+  assert.equal(gameQueries.length,3);
+  for(const sql of gameQueries) assert.match(sql,/EXISTS.*availability.is_deleted/s);
+  assert.match(queries.find(sql=>sql.includes("GROUP BY type")),/NOT is_deleted/);
+});
