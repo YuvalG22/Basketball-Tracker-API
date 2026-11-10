@@ -224,9 +224,15 @@ export const getGameStats = async (req, res) => {
       [gameId],
     );
 
+    const shotsResult = await (req.database || pool).query(
+      `SELECT id, type, period, player_remote_id, shot_x, shot_y FROM events
+       WHERE game_remote_id = $1 AND NOT is_deleted AND shot_x IS NOT NULL AND shot_y IS NOT NULL
+         AND type IN ('TWO_MADE','TWO_MISS','THREE_MADE','THREE_MISS','OPP_TWO_MADE','OPP_TWO_MISS','OPP_THREE_MADE','OPP_THREE_MISS')
+       ORDER BY period, clock_sec_remaining DESC, created_at, COALESCE(local_id,0), id`, [gameId]);
     const totals = await (req.database || pool).query(
       `SELECT type, COUNT(*)::int AS count FROM events WHERE game_remote_id = $1 AND NOT is_deleted GROUP BY type`, [gameId]);
     return res.json({
+      shots: shotsResult.rows,
       teamStats: buildTeamStats(gameResult.rows[0], totals.rows),
       game: gameResult.rows[0],
       players: playersResult.rows,
