@@ -8,7 +8,9 @@ test('26/27 schedule has nine dated rounds and correct home/away assignment', as
   assert.equal(fixtures.filter(f => f.isHomeGame).length, 5);
   assert.equal(fixtures[0].date, '2026-11-27');
   assert.equal(fixtures[8].date, '2027-03-19');
-  assert.equal(fixtures.filter(f => f.time != null).length, 7);
+  assert.equal(fixtures.filter(f => f.time != null).length, 9);
+  assert.equal(fixtures.find(f => f.roundNumber === 4).time, '21:00:00');
+  assert.equal(fixtures.find(f => f.roundNumber === 5).time, '21:00:00');
   for (const f of fixtures) {
     const row = fixtureValues(f, 100);
     assert.equal(row.status, 'SCHEDULED');
