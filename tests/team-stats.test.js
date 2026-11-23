@@ -19,6 +19,16 @@ test("team totals retain zeros, final points, and per-category opponent coverage
   const missing = buildTeamStats({},[]);
   assert.equal(missing.opponent.two.made,null); assert.equal(missing.opponent.fouls,null);
 });
+test("opponent rebounds are counted separately, with untracked legacy games left unknown", () => {
+  const stats = buildTeamStats({}, counts({REB_OFF:2,REB_DEF:3,OPP_REB_O:4,OPP_REB_D:6}));
+  assert.equal(stats.afeka.rebounds,5);
+  assert.equal(stats.opponent.rebounds,10);
+  assert.equal(stats.opponent.offensive_rebounds,4);
+  assert.equal(stats.opponent.defensive_rebounds,6);
+  const defensiveOnly = buildTeamStats({}, counts({OPP_REB_D:1}));
+  assert.equal(defensiveOnly.opponent.offensive_rebounds,0);
+  assert.equal(buildTeamStats({}, []).opponent.rebounds,null);
+});
 test("game endpoints expose existence of non-deleted events and aggregate all event types independently of PBP", async () => {
   const queries=[];
   const database={async query(sql) {

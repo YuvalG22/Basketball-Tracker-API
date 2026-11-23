@@ -31,6 +31,8 @@ const types = new Set([
   "OPP_THREE_MISS",
   "OPP_FT_MISS",
   "OPP_PF",
+  "OPP_REB_O",
+  "OPP_REB_D",
   "PERIOD_START",
   "PERIOD_END",
 ]);

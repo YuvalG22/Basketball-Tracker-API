@@ -2,6 +2,43 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { transaction, endpoint, validateRevision } from '../src/syncStore.js';
 import { getGameStats } from '../src/controllers/gamesController.js';
+import { createEvents } from '../src/controllers/eventsController.js';
+
+test('opponent rebounds sync without a player reference or changing the score', async () => {
+  const inserted = [];
+  const queries = [];
+  const connection = {
+    async query(sql, args = []) {
+      queries.push(sql);
+      if (sql.startsWith('SELECT * FROM games')) return { rows: [{ id: 'game', server_version: 1 }] };
+      if (sql.startsWith('INSERT INTO events')) {
+        const columns = sql.match(/\(([^)]+)\) VALUES/)[1].split(',');
+        const row = { ...Object.fromEntries(columns.map((column, index) => [column, args[index]])),
+          id: `event-${inserted.length}`, server_version: 0, is_deleted: false };
+        inserted.push(row);
+        return { rows: [row] };
+      }
+      if (sql.startsWith('UPDATE games')) return { rows: [{ server_version: 2 }] };
+      if (sql.startsWith('SELECT id,game_version FROM events'))
+        return { rows: inserted.map(row => ({ id: row.id, game_version: 2 })) };
+      return { rows: [] };
+    },
+    release() {},
+  };
+  let status = 200, body;
+  await createEvents({
+    database: { connect: async () => connection },
+    body: ['OPP_REB_O', 'OPP_REB_D'].map((type, index) => ({
+      type, gameId: 1, gameRemoteId: 'game', period: 1, clockSecRemaining: 500,
+      createdAt: index + 1, syncKey: `rebound-${index}`,
+    })),
+  }, { status(value) { status = value; return this; }, json(value) { body = value; } });
+  assert.equal(status, 200);
+  assert.equal(body.length, 2);
+  assert.deepEqual(inserted.map(row => row.type), ['OPP_REB_O', 'OPP_REB_D']);
+  assert.ok(inserted.every(row => row.player_id === null && row.player_remote_id === null));
+  assert.ok(!queries.some(sql => sql.includes('team_score=')));
+});
 
 test('game details expose source ordering IDs for scoring and lineup events', async () => {
   const queries=[];

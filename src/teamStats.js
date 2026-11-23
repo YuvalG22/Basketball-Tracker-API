@@ -3,6 +3,7 @@ export function buildTeamStats(game, rows) {
   const counts = Object.fromEntries(rows.map(row => [row.type, Number(row.count)]));
   const n = type => counts[type] ?? 0;
   const opponentScoring = ["TWO", "THREE", "FT"].some(type => n(`OPP_${type}_MADE`) > 0);
+  const opponentRebounds = n("OPP_REB_O") + n("OPP_REB_D");
   const shooting = (type, opponent) => {
     const prefix = opponent ? "OPP_" : "";
     const made = opponent && !opponentScoring ? null : n(`${prefix}${type}_MADE`);
@@ -17,8 +18,9 @@ export function buildTeamStats(game, rows) {
     return {
       points: Number((opponent ? game.opponent_score : game.team_score) ?? 0),
       fg: { made, attempts, percentage: attempts > 0 && made != null ? made / attempts * 100 : null }, two, three, ft,
-      rebounds: opponent ? null : n("REB_OFF") + n("REB_DEF"),
-      offensive_rebounds: opponent ? null : n("REB_OFF"), defensive_rebounds: opponent ? null : n("REB_DEF"),
+      rebounds: opponent ? opponentRebounds || null : n("REB_OFF") + n("REB_DEF"),
+      offensive_rebounds: opponent ? (opponentRebounds ? n("OPP_REB_O") : null) : n("REB_OFF"),
+      defensive_rebounds: opponent ? (opponentRebounds ? n("OPP_REB_D") : null) : n("REB_DEF"),
       assists: opponent ? null : n("AST"), steals: opponent ? null : n("STL"), blocks: opponent ? null : n("BLK"),
       turnovers: opponent ? null : n("TOV"), fouls: opponent ? n("OPP_PF") || null : n("PF"),
     };
