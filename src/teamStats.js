@@ -23,6 +23,7 @@ export function buildTeamStats(game, rows) {
       defensive_rebounds: opponent ? (opponentRebounds ? n("OPP_REB_D") : null) : n("REB_DEF"),
       assists: opponent ? null : n("AST"), steals: opponent ? null : n("STL"), blocks: opponent ? null : n("BLK"),
       turnovers: opponent ? null : n("TOV"), fouls: opponent ? n("OPP_PF") || null : n("PF"),
+      fouls_drawn: opponent ? null : n("PF_DRAWN"),
     };
   };
   return { afeka: team(false), opponent: team(true) };

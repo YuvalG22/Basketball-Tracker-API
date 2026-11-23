@@ -22,6 +22,7 @@ const types = new Set([
   "TOV",
   "BLK",
   "PF",
+  "PF_DRAWN",
   "SUB_IN",
   "SUB_OUT",
   "OPP_TWO_MADE",
@@ -66,6 +67,8 @@ async function saveEvent(db, req) {
     (e.assistedByPlayerId != null && !e.assistedByPlayerRemoteId)
   )
     throw new HttpError(400, "Unresolved player reference");
+  if (e.type === "PF_DRAWN" && !e.playerRemoteId)
+    throw new HttpError(400, "Foul drawn requires a player");
   const result = await createRecord(
     db,
     "events",

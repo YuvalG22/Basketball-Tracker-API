@@ -4,7 +4,7 @@ import { transaction, endpoint, validateRevision } from '../src/syncStore.js';
 import { getGameStats } from '../src/controllers/gamesController.js';
 import { createEvents } from '../src/controllers/eventsController.js';
 
-test('opponent rebounds sync without a player reference or changing the score', async () => {
+test('opponent rebounds and drawn fouls sync with the correct player references without changing the score', async () => {
   const inserted = [];
   const queries = [];
   const connection = {
@@ -28,16 +28,56 @@ test('opponent rebounds sync without a player reference or changing the score', 
   let status = 200, body;
   await createEvents({
     database: { connect: async () => connection },
-    body: ['OPP_REB_O', 'OPP_REB_D'].map((type, index) => ({
+    body: ['OPP_REB_O', 'OPP_REB_D', 'PF_DRAWN'].map((type, index) => ({
       type, gameId: 1, gameRemoteId: 'game', period: 1, clockSecRemaining: 500,
+      ...(type === 'PF_DRAWN' ? {playerId: 2, playerRemoteId: 'player-2'} : {}),
       createdAt: index + 1, syncKey: `rebound-${index}`,
     })),
   }, { status(value) { status = value; return this; }, json(value) { body = value; } });
   assert.equal(status, 200);
-  assert.equal(body.length, 2);
-  assert.deepEqual(inserted.map(row => row.type), ['OPP_REB_O', 'OPP_REB_D']);
-  assert.ok(inserted.every(row => row.player_id === null && row.player_remote_id === null));
+  assert.equal(body.length, 3);
+  assert.deepEqual(inserted.map(row => row.type), ['OPP_REB_O', 'OPP_REB_D', 'PF_DRAWN']);
+  assert.ok(inserted.slice(0, 2).every(row => row.player_id === null && row.player_remote_id === null));
+  assert.equal(inserted[2].player_id, 2);
+  assert.equal(inserted[2].player_remote_id, 'player-2');
   assert.ok(!queries.some(sql => sql.includes('team_score=')));
+});
+
+test('drawn fouls require a player and are exposed in game, quarter and season statistics', async () => {
+  const { getPlayerStats } = await import('../src/controllers/playersController.js');
+  const { getSeasonStats } = await import('../src/controllers/statsController.js');
+  const queries = [];
+  const game = {game_id:'game',points:0,rebounds:0,assists:0,steals:0,blocks:0,turnovers:0,fouls:1,fouls_drawn:3};
+  const database = {
+    async query(sql) {
+      queries.push(sql);
+      if (sql.includes('FROM players')) return {rows:[{id:'player'}]};
+      if (sql.includes('g.id AS game_id')) return {rows:[game]};
+      if (sql.includes('GROUP BY e.game_remote_id, e.period')) return {rows:[{game_remote_id:'game',period:2,fouls_drawn:3}]};
+      return {rows:[]};
+    },
+  };
+  let body;
+  const response = {json(value){body=value;},status(){return this;}};
+  await getPlayerStats({params:{playerId:'player'},query:{season:'26/27'},database},response);
+  assert.equal(body.games[0].fouls_drawn,3);
+  assert.equal(body.games[0].periods[0].fouls_drawn,3);
+  assert.equal(body.totals.foulsDrawn,3);
+  assert.equal(body.averages.fdpg,3);
+  for (const sql of queries.filter(sql => sql.includes('g.id AS game_id') || sql.includes('GROUP BY e.game_remote_id, e.period')))
+    assert.match(sql,/PF_DRAWN.*fouls_drawn/);
+  await getSeasonStats({query:{season:'26/27'},database},response,error=>{throw error;});
+  assert.match(queries.at(-1),/PF_DRAWN.*pf_drawn/);
+
+  let status = 200;
+  const connection = {async query(sql) {
+    return {rows:sql.startsWith('SELECT * FROM games')?[{id:'game',server_version:0}]:[]};
+  },release(){}};
+  await createEvents({database:{connect:async()=>connection},body:[{
+    type:'PF_DRAWN',gameRemoteId:'game',period:1,clockSecRemaining:500,createdAt:1,
+  }]},{status(value){status=value;return this;},json(value){body=value;}});
+  assert.equal(status,400);
+  assert.equal(body.error,'Foul drawn requires a player');
 });
 
 test('game details expose source ordering IDs for scoring and lineup events', async () => {
@@ -60,6 +100,8 @@ test('game details expose source ordering IDs for scoring and lineup events', as
     assert.match(sql,/e\.is_deleted = false/);
     assert.match(sql,/e\.created_at ASC, COALESCE\(e\.local_id,0\) ASC, e\.id ASC/);
   }
+  assert.ok(queries.some(sql=>sql.includes("'PF_DRAWN'") && sql.includes('AS fouls_drawn')));
+  assert.ok(eventQueries.some(sql=>sql.includes("'PF_DRAWN'") && sql.includes("'OPP_PF'")));
 });
 
 test('transaction rolls back a network/database failure and always releases the connection',async()=>{

@@ -88,6 +88,8 @@ export const getPlayerStats = async (req, res) => {
         COALESCE(SUM(CASE WHEN e.type = 'STL' THEN 1 ELSE 0 END), 0) AS steals,
         COALESCE(SUM(CASE WHEN e.type = 'BLK' THEN 1 ELSE 0 END), 0) AS blocks,
         COALESCE(SUM(CASE WHEN e.type = 'TOV' THEN 1 ELSE 0 END), 0) AS turnovers,
+        COALESCE(SUM(CASE WHEN e.type = 'PF' THEN 1 ELSE 0 END), 0) AS fouls,
+        COALESCE(SUM(CASE WHEN e.type = 'PF_DRAWN' THEN 1 ELSE 0 END), 0) AS fouls_drawn,
 
         COALESCE(SUM(CASE WHEN e.type = 'TWO_MADE' THEN 1 ELSE 0 END), 0) AS two_made,
         COALESCE(SUM(CASE WHEN e.type = 'TWO_MISS' THEN 1 ELSE 0 END), 0) AS two_miss,
@@ -152,6 +154,7 @@ export const getPlayerStats = async (req, res) => {
         acc.steals += Number(game.steals);
         acc.blocks += Number(game.blocks);
         acc.turnovers += Number(game.turnovers);
+        acc.foulsDrawn += Number(game.fouls_drawn ?? 0);
         return acc;
       },
       {
@@ -162,10 +165,12 @@ export const getPlayerStats = async (req, res) => {
         steals: 0,
         blocks: 0,
         turnovers: 0,
+        foulsDrawn: 0,
       },
     );
 
     const averages = {
+      fdpg: totals.gamesPlayed ? +(totals.foulsDrawn / totals.gamesPlayed).toFixed(1) : 0,
       ppg: totals.gamesPlayed
         ? +(totals.points / totals.gamesPlayed).toFixed(1)
         : 0,
@@ -208,6 +213,7 @@ export const getPlayerStats = async (req, res) => {
         COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('BLK')) AS blocks,
         COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TOV')) AS turnovers,
         COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('PF')) AS fouls,
+        COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('PF_DRAWN')) AS fouls_drawn,
         COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TWO_MADE')) AS two_made,
         COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('TWO_MISS')) AS two_miss,
         COUNT(*) FILTER (WHERE e.player_remote_id = $1 AND e.type IN ('THREE_MADE')) AS three_made,
@@ -224,7 +230,7 @@ export const getPlayerStats = async (req, res) => {
       WHERE NOT e.is_deleted AND NOT g.is_deleted AND g.status = 'FINISHED' AND ($2::text IS NULL OR g.season = $2) AND e.period > 0
       GROUP BY e.game_remote_id, e.period
       HAVING COUNT(*) FILTER (WHERE e.type IN ('TWO_MADE','TWO_MISS','THREE_MADE','THREE_MISS',
-        'FT_MADE','FT_MISS','REB_DEF','REB_OFF','AST','STL','BLK','TOV','PF')) > 0
+        'FT_MADE','FT_MISS','REB_DEF','REB_OFF','AST','STL','BLK','TOV','PF','PF_DRAWN')) > 0
       ORDER BY e.game_remote_id, e.period
     `, [playerId, season]);
     const periodsByGame = new Map();

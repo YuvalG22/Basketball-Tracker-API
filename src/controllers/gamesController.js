@@ -128,6 +128,7 @@ export const getGameStats = async (req, res) => {
     COALESCE(SUM(CASE WHEN e.type = 'BLK' THEN 1 ELSE 0 END), 0) AS blocks,
     COALESCE(SUM(CASE WHEN e.type = 'TOV' THEN 1 ELSE 0 END), 0) AS turnovers,
     COALESCE(SUM(CASE WHEN e.type = 'PF' THEN 1 ELSE 0 END), 0) AS fouls,
+    COALESCE(SUM(CASE WHEN e.type = 'PF_DRAWN' THEN 1 ELSE 0 END), 0) AS fouls_drawn,
 
     COALESCE(SUM(CASE WHEN e.type = 'TWO_MADE' THEN 1 ELSE 0 END), 0) AS two_made,
     COALESCE(SUM(CASE WHEN e.type = 'TWO_MISS' THEN 1 ELSE 0 END), 0) AS two_miss,
@@ -193,6 +194,9 @@ export const getGameStats = async (req, res) => {
       'OPP_TWO_MADE',
       'OPP_THREE_MADE',
       'OPP_FT_MADE',
+      'PF',
+      'OPP_PF',
+      'PF_DRAWN',
       'PERIOD_END',
       'PERIOD_START'
     )
