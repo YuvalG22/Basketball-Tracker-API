@@ -3,9 +3,15 @@ import {endpoint,createRecord,updateRecord,HttpError,validateRevision} from "../
 function playerValues(p){
  validateRevision(p);
  if(typeof p.name!=="string"||!p.name.trim()||!Number.isInteger(p.number)||p.number<0)throw new HttpError(400,"Invalid player");
- return {name:p.name,number:p.number};
+ const values = {name:p.name,number:p.number};
+ if (p.seasonMemberships !== undefined) {
+   const m=p.seasonMemberships;
+   if (!m || typeof m!=="object" || Array.isArray(m) || Object.entries(m).some(([s,v])=>!/^\d{2}\/\d{2}$/.test(s)||!["active","left","excluded","unreviewed","review-active"].includes(v))) throw new HttpError(400,"Invalid season memberships");
+   values.season_memberships=JSON.stringify(m);
+ }
+ return values;
 }
-export const createPlayer=endpoint((db,req)=>createRecord(db,"players",{...playerValues(req.body),local_id:req.body.localId??null,created_at:req.body.createdAt??Date.now()},req.body.syncKey??req.get("Idempotency-Key"),req.body.clientRevision??0));
+export const createPlayer=endpoint((db,req)=>createRecord(db,"players",{season_memberships:JSON.stringify({'26/27':'active'}),...playerValues(req.body),local_id:req.body.localId??null,created_at:req.body.createdAt??Date.now()},req.body.syncKey??req.get("Idempotency-Key"),req.body.clientRevision??0));
 export const updatePlayer=endpoint((db,req)=>updateRecord(db,"players",req.params.remoteId,playerValues(req.body),req.body));
 export const deletePlayer=endpoint(async(db,req)=>{
  await db.query("UPDATE players SET is_deleted=true,server_version=server_version+1 WHERE id=$1 AND NOT is_deleted",[req.params.remoteId]);
@@ -19,7 +25,7 @@ export const getPlayers = async (req, res) => {
         local_id,
         name,
         number,
-        created_at, sync_key, server_version, client_revision, is_deleted
+        created_at, season_memberships, sync_key, server_version, client_revision, is_deleted
       FROM players
       WHERE ($1 OR NOT is_deleted)
       ORDER BY id ASC

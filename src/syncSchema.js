@@ -19,6 +19,10 @@ export async function migrateSyncSchema(db, {lock = true} = {}) {
     END $$;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS action_group_id text;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS game_version bigint;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS season_memberships jsonb;
+    UPDATE players p SET season_memberships =
+      jsonb_build_object('26/27', 'unreviewed') || COALESCE((SELECT jsonb_object_agg(s.season, CASE WHEN s.season='26/27' THEN 'review-active' ELSE 'active' END) FROM (SELECT DISTINCT g.season FROM roster r JOIN games g ON g.id=r.game_remote_id WHERE r.player_remote_id=p.id AND NOT g.is_deleted) s), '{}'::jsonb)
+      WHERE season_memberships IS NULL;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS is_deleted boolean NOT NULL DEFAULT false;
     DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='events'::regclass AND conname='events_assist_player_fkey') THEN

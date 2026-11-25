@@ -15,7 +15,7 @@ export function createApp(database = pool) {
   app.use(express.json());
   app.use((req, res, next) => { req.database = database; next(); });
   app.get('/', (req, res) => res.send('Basketball backend is running'));
-  app.get('/sync/capabilities', (req, res) => res.json({ protocolVersion: 2 }));
+  app.get('/sync/capabilities', (req, res) => res.json({ protocolVersion: 3 }));
   app.get('/sync/snapshot', endpoint(db => getSnapshot(db)));
   app.post('/sync/mutation-acknowledgements', mutationAcknowledgements);
   app.use('/events', eventsRoutes);
